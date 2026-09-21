@@ -10,14 +10,14 @@ From source (Go 1.25+):
 make install
 ```
 
-Homebrew (HEAD):
+Homebrew:
 
 ```sh
 brew tap jacobhuemmer/atlas https://github.com/jacobhuemmer/atlas
-brew install --HEAD jacobhuemmer/atlas/atlas
+brew install jacobhuemmer/atlas/atlas
 ```
 
-Upgrade later with `brew upgrade --fetch-HEAD jacobhuemmer/atlas/atlas`.
+Upgrade with `brew upgrade jacobhuemmer/atlas/atlas`. For unreleased `main`, `brew install --HEAD jacobhuemmer/atlas/atlas` and later `brew upgrade --fetch-HEAD jacobhuemmer/atlas/atlas`.
 
 ## Config
 
