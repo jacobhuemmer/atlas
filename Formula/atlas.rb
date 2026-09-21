@@ -1,8 +1,8 @@
 class Atlas < Formula
   desc "Atlassian CLI for Jira, Confluence, Bitbucket, and JSM customer REST"
-  homepage "https://github.com/masonhuemmer/atlas"
+  homepage "https://github.com/jacobhuemmer/atlas"
   license "MIT"
-  head "https://github.com/masonhuemmer/atlas.git", branch: "main"
+  head "https://github.com/jacobhuemmer/atlas.git", branch: "main"
 
   depends_on "go" => :build
 
