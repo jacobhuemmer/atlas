@@ -3,53 +3,271 @@ package rest
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
+const jiraFields = "summary,description,status,issuetype,priority,labels,assignee,reporter,created,updated,project,comment,issuelinks"
+
 // Jira is the live Cloud REST client (https://<hostname>/rest/api/3).
-// Phase 2 tests use the in-memory seed; this stub is unused until wired.
-type Jira struct{}
-
-func (Jira) Get(_ context.Context, _, _ string) (domain.Issue, error) {
-	return domain.Issue{}, domain.Service("live Jira REST is not wired")
+type Jira struct {
+	*Client
 }
 
-func (Jira) Search(_ context.Context, _, _ string) (domain.SearchResult, error) {
-	return domain.SearchResult{}, domain.Service("live Jira REST is not wired")
+func (j Jira) Get(ctx context.Context, hostname, key string) (domain.Issue, error) {
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	u := joinURL(j.origin(hostname), "/rest/api/3/issue/"+q(strings.ToUpper(strings.TrimSpace(key)))+"?fields="+jiraFields)
+	code, body, err := j.doJSON(ctx, http.MethodGet, u, cred, nil, nil)
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	if code != http.StatusOK {
+		return domain.Issue{}, MapStatus(code)
+	}
+	return issueFromREST(hostname, mustJSON(body)), nil
 }
 
-func (Jira) Create(_ context.Context, _ string, _ domain.CreateIssue, _ bool) (domain.Issue, error) {
-	return domain.Issue{}, domain.Service("live Jira REST is not wired")
+func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchResult, error) {
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return domain.SearchResult{}, err
+	}
+	u := joinURL(j.origin(hostname), "/rest/api/3/search/jql?jql="+q(jql)+"&fields="+jiraFields+"&maxResults=50")
+	code, body, err := j.doJSON(ctx, http.MethodGet, u, cred, nil, nil)
+	if err != nil {
+		return domain.SearchResult{}, err
+	}
+	if code == http.StatusNotFound {
+		// Older sites still use /search.
+		u = joinURL(j.origin(hostname), "/rest/api/3/search?jql="+q(jql)+"&fields="+jiraFields+"&maxResults=50")
+		code, body, err = j.doJSON(ctx, http.MethodGet, u, cred, nil, nil)
+		if err != nil {
+			return domain.SearchResult{}, err
+		}
+	}
+	if code != http.StatusOK {
+		return domain.SearchResult{}, MapStatus(code)
+	}
+	m := mustJSON(body)
+	var items []domain.Issue
+	for _, raw := range asList(m["issues"]) {
+		items = append(items, issueFromREST(hostname, asMap(raw)))
+	}
+	if items == nil {
+		items = []domain.Issue{}
+	}
+	return domain.SearchResult{JQL: jql, Site: hostname, Count: len(items), Items: items}, nil
 }
 
-func (Jira) Edit(_ context.Context, _, _ string, _ map[string]any, _ bool) (domain.Issue, error) {
-	return domain.Issue{}, domain.Service("live Jira REST is not wired")
+func (j Jira) Create(ctx context.Context, hostname string, in domain.CreateIssue, dryRun bool) (domain.Issue, error) {
+	preview := domain.Issue{
+		Site: hostname, Project: in.Project, IssueType: in.IssueType,
+		Summary: in.Summary, Description: in.Description, Labels: in.Labels,
+		Assignee: in.Assignee, Status: "To Do",
+	}
+	if dryRun {
+		return preview, nil
+	}
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	fields := map[string]any{
+		"project":   map[string]any{"key": in.Project},
+		"issuetype": map[string]any{"name": in.IssueType},
+		"summary":   in.Summary,
+	}
+	if in.Description != "" {
+		fields["description"] = adfFromText(in.Description)
+	}
+	if len(in.Labels) > 0 {
+		fields["labels"] = in.Labels
+	}
+	if in.Assignee != "" {
+		fields["assignee"] = map[string]any{"accountId": in.Assignee}
+	}
+	u := joinURL(j.origin(hostname), "/rest/api/3/issue")
+	code, body, err := j.doJSON(ctx, http.MethodPost, u, cred, nil, map[string]any{"fields": fields})
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	if code != http.StatusCreated && code != http.StatusOK {
+		return domain.Issue{}, MapStatus(code)
+	}
+	key := str(mustJSON(body), "key")
+	if key == "" {
+		return domain.Issue{}, domain.Service("jira create returned no key")
+	}
+	return j.Get(ctx, hostname, key)
 }
 
-func (Jira) Comment(_ context.Context, _, _, _ string, _ bool) error {
-	return domain.Service("live Jira REST is not wired")
+func (j Jira) Edit(ctx context.Context, hostname, key string, fields map[string]any, dryRun bool) (domain.Issue, error) {
+	if dryRun {
+		iss, err := j.Get(ctx, hostname, key)
+		if err != nil {
+			return domain.Issue{}, err
+		}
+		return iss, nil
+	}
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	u := joinURL(j.origin(hostname), "/rest/api/3/issue/"+q(strings.ToUpper(strings.TrimSpace(key))))
+	code, _, err := j.doJSON(ctx, http.MethodPut, u, cred, nil, map[string]any{"fields": fields})
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	if code != http.StatusNoContent && code != http.StatusOK {
+		return domain.Issue{}, MapStatus(code)
+	}
+	return j.Get(ctx, hostname, key)
 }
 
-func (Jira) Transition(_ context.Context, _, _, _ string, _ bool) (domain.Issue, error) {
-	return domain.Issue{}, domain.Service("live Jira REST is not wired")
+func (j Jira) Comment(ctx context.Context, hostname, key, body string, dryRun bool) error {
+	if dryRun {
+		return nil
+	}
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return err
+	}
+	u := joinURL(j.origin(hostname), "/rest/api/3/issue/"+q(strings.ToUpper(strings.TrimSpace(key)))+"/comment")
+	code, _, err := j.doJSON(ctx, http.MethodPost, u, cred, nil, map[string]any{"body": adfFromText(body)})
+	if err != nil {
+		return err
+	}
+	if code != http.StatusCreated && code != http.StatusOK {
+		return MapStatus(code)
+	}
+	return nil
 }
 
-func (Jira) Link(_ context.Context, _, _, _, _ string, _ bool) error {
-	return domain.Service("live Jira REST is not wired")
+func (j Jira) Transition(ctx context.Context, hostname, key, name string, dryRun bool) (domain.Issue, error) {
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	key = strings.ToUpper(strings.TrimSpace(key))
+	u := joinURL(j.origin(hostname), "/rest/api/3/issue/"+q(key)+"/transitions")
+	code, body, err := j.doJSON(ctx, http.MethodGet, u, cred, nil, nil)
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	if code != http.StatusOK {
+		return domain.Issue{}, MapStatus(code)
+	}
+	id := ""
+	for _, raw := range asList(mustJSON(body)["transitions"]) {
+		t := asMap(raw)
+		if strings.EqualFold(str(t, "name"), name) {
+			id = str(t, "id")
+			break
+		}
+	}
+	if id == "" {
+		return domain.Issue{}, domain.Usagef("unknown transition %q", name).WithHint("atlas jira transition KEY --name NAME")
+	}
+	if dryRun {
+		return j.Get(ctx, hostname, key)
+	}
+	code, _, err = j.doJSON(ctx, http.MethodPost, u, cred, nil, map[string]any{"transition": map[string]any{"id": id}})
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	if code != http.StatusNoContent && code != http.StatusOK {
+		return domain.Issue{}, MapStatus(code)
+	}
+	return j.Get(ctx, hostname, key)
+}
+
+func (j Jira) Link(ctx context.Context, hostname, inward, outward, linkType string, dryRun bool) error {
+	if dryRun {
+		return nil
+	}
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return err
+	}
+	if linkType == "" {
+		linkType = domain.DefaultLinkType
+	}
+	u := joinURL(j.origin(hostname), "/rest/api/3/issueLink")
+	payload := map[string]any{
+		"type":         map[string]any{"name": linkType},
+		"inwardIssue":  map[string]any{"key": strings.ToUpper(inward)},
+		"outwardIssue": map[string]any{"key": strings.ToUpper(outward)},
+	}
+	code, _, err := j.doJSON(ctx, http.MethodPost, u, cred, nil, payload)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusCreated && code != http.StatusOK && code != http.StatusNoContent {
+		return MapStatus(code)
+	}
+	return nil
+}
+
+func issueFromREST(hostname string, m map[string]any) domain.Issue {
+	key := str(m, "key")
+	f := asMap(m["fields"])
+	iss := domain.Issue{
+		Key:         key,
+		Site:        hostname,
+		BrowseURL:   domain.BrowseURL(hostname, key),
+		Summary:     str(f, "summary"),
+		Description: textFromADF(f["description"]),
+		Status:      nestedName(f, "status"),
+		IssueType:   nestedName(f, "issuetype"),
+		Priority:    nestedName(f, "priority"),
+		Assignee:    displayUser(asMap(f["assignee"])),
+		Reporter:    displayUser(asMap(f["reporter"])),
+		Created:     str(f, "created"),
+		Updated:     str(f, "updated"),
+		Project:     str(asMap(f["project"]), "key"),
+	}
+	for _, raw := range asList(f["labels"]) {
+		if s, ok := raw.(string); ok {
+			iss.Labels = append(iss.Labels, s)
+		}
+	}
+	if c := asMap(f["comment"]); c != nil {
+		for _, raw := range asList(c["comments"]) {
+			cm := asMap(raw)
+			if t := textFromADF(cm["body"]); t != "" {
+				iss.Comments = append(iss.Comments, t)
+			}
+		}
+	}
+	for _, raw := range asList(f["issuelinks"]) {
+		l := asMap(raw)
+		typ := nestedName(l, "type")
+		if in := asMap(l["inwardIssue"]); in != nil {
+			iss.Links = append(iss.Links, domain.IssueLink{Type: typ, Inward: str(in, "key"), Outward: key})
+		}
+		if out := asMap(l["outwardIssue"]); out != nil {
+			iss.Links = append(iss.Links, domain.IssueLink{Type: typ, Inward: key, Outward: str(out, "key")})
+		}
+	}
+	return iss
+}
+
+func displayUser(m map[string]any) string {
+	if m == nil {
+		return ""
+	}
+	if s := str(m, "displayName"); s != "" {
+		return s
+	}
+	return str(m, "accountId")
 }
 
 // MapStatus maps Jira HTTP statuses to exit classes.
 // 401/403 → auth, 404 → not_found, 429/5xx → service.
 func MapStatus(code int) error {
-	switch code {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return domain.Auth("not authorized for this Jira site")
-	case http.StatusNotFound:
-		return domain.NotFound("issue not found")
-	case http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable:
-		return domain.Service("jira service error")
-	default:
-		return domain.Service("jira service error")
-	}
+	return classify(code, "jira", "issue not found")
 }

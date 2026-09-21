@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/masonhuemmer/atlas/internal/adapters/atlassian"
+	"github.com/masonhuemmer/atlas/internal/adapters/atlassian/rest"
 	"github.com/masonhuemmer/atlas/internal/adapters/cli"
 	"github.com/masonhuemmer/atlas/internal/adapters/keychain"
 	"github.com/masonhuemmer/atlas/internal/app/auth"
@@ -32,6 +33,11 @@ func main() {
 			Secondary: &keychain.FileStore{Path: keychain.LiveSessionPath()},
 		}
 		d.Login = storeLogin
+		live := &rest.Client{Store: d.Store}
+		d.Jira = rest.Jira{Client: live}
+		d.Confluence = rest.Confluence{Client: live}
+		d.PR = rest.Bitbucket{Client: live}
+		d.JSM = rest.JSM{Client: live}
 	}
 	os.Exit(cli.Run(os.Args, d))
 }
