@@ -35,6 +35,10 @@ func (Jira) Transition(_ context.Context, _, _, _ string, _ bool) (domain.Issue,
 	return domain.Issue{}, domain.Service("live Jira REST is not wired")
 }
 
+func (Jira) Link(_ context.Context, _, _, _, _ string, _ bool) error {
+	return domain.Service("live Jira REST is not wired")
+}
+
 // MapStatus maps Jira HTTP statuses to exit classes.
 // 401/403 → auth, 404 → not_found, 429/5xx → service.
 func MapStatus(code int) error {

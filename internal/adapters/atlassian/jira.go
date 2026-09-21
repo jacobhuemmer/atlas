@@ -67,6 +67,13 @@ func (j JiraAPI) Transition(ctx context.Context, hostname, key, name string, dry
 	return j.Memory.Transition(ctx, hostname, key, name, dryRun)
 }
 
+func (j JiraAPI) Link(ctx context.Context, hostname, inward, outward, linkType string, dryRun bool) error {
+	if j.Memory == nil {
+		return domain.Service("jira memory not configured")
+	}
+	return j.Memory.Link(ctx, hostname, inward, outward, linkType, dryRun)
+}
+
 func (m *Memory) Get(_ context.Context, hostname, key string) (domain.Issue, error) {
 	if m == nil {
 		return domain.Issue{}, domain.Service("jira memory not configured")
@@ -239,6 +246,44 @@ func (m *Memory) Transition(_ context.Context, hostname, key, name string, dryRu
 	return cloneIssue(next), nil
 }
 
+func (m *Memory) Link(_ context.Context, hostname, inward, outward, linkType string, dryRun bool) error {
+	if m == nil {
+		return domain.Service("jira memory not configured")
+	}
+	hostname = strings.TrimSpace(hostname)
+	inward = strings.ToUpper(strings.TrimSpace(inward))
+	outward = strings.ToUpper(strings.TrimSpace(outward))
+	linkType = strings.TrimSpace(linkType)
+	if linkType == "" {
+		linkType = domain.DefaultLinkType
+	}
+	if hostname == "" || inward == "" || outward == "" {
+		return domain.Usage("hostname and both issue keys are required")
+	}
+	if inward == outward {
+		return domain.Usage("inward and outward keys must differ")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	a, ok := m.issues[memKey(hostname, inward)]
+	if !ok {
+		return domain.NotFound("issue not found").WithHint("check the key and site")
+	}
+	b, ok := m.issues[memKey(hostname, outward)]
+	if !ok {
+		return domain.NotFound("issue not found").WithHint("check the key and site")
+	}
+	if dryRun {
+		return nil
+	}
+	link := domain.IssueLink{Type: linkType, Inward: inward, Outward: outward}
+	a.Links = append(append([]domain.IssueLink(nil), a.Links...), link)
+	b.Links = append(append([]domain.IssueLink(nil), b.Links...), link)
+	m.putLocked(a)
+	m.putLocked(b)
+	return nil
+}
+
 // IssueCount is the seeded plus persisted issue count (tests).
 func (m *Memory) IssueCount() int {
 	if m == nil {
@@ -397,6 +442,9 @@ func cloneIssue(iss domain.Issue) domain.Issue {
 	}
 	if iss.Comments != nil {
 		out.Comments = append([]string(nil), iss.Comments...)
+	}
+	if iss.Links != nil {
+		out.Links = append([]domain.IssueLink(nil), iss.Links...)
 	}
 	return out
 }

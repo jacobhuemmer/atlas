@@ -71,3 +71,56 @@ func TestMCPJiraCreateWriteGate(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 }
+
+func TestMCPJiraLinkWriteGate(t *testing.T) {
+	d, _, _ := testDeps()
+	mem := d.Jira.(atlassian.JiraAPI).Memory
+	cs := connectMCP(t, d)
+
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "atlas_run", Arguments: runIn{
+			Namespace: "jira", Verb: "link",
+			Args: []string{"SDO-1", "SDP-2"},
+		},
+	})
+	if err != nil || res.IsError {
+		t.Fatal(err, toolText(t, res))
+	}
+	var preview map[string]any
+	if err := json.Unmarshal([]byte(toolText(t, res)), &preview); err != nil {
+		t.Fatal(toolText(t, res))
+	}
+	if preview["dry_run"] != true {
+		t.Fatal(toolText(t, res))
+	}
+	if preview["namespace"] != "jira" || preview["verb"] != "link" {
+		t.Fatal(toolText(t, res))
+	}
+	if preview["type"] != domain.DefaultLinkType {
+		t.Fatal(toolText(t, res))
+	}
+	got, err := mem.Get(context.Background(), "sesamidevel.atlassian.net", "SDO-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Links) != 0 {
+		t.Fatalf("link persisted without write_opt_in %+v", got.Links)
+	}
+
+	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "atlas_run", Arguments: runIn{
+			Namespace: "jira", Verb: "link", WriteOptIn: true,
+			Args: []string{"SDO-1", "SDP-2"},
+		},
+	})
+	if err != nil || res.IsError {
+		t.Fatal(err, toolText(t, res))
+	}
+	got, err = mem.Get(context.Background(), "sesamidevel.atlassian.net", "SDO-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasRelatesLink(got, "SDO-1", "SDP-2") {
+		t.Fatalf("%+v", got.Links)
+	}
+}

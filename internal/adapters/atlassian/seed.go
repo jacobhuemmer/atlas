@@ -30,6 +30,13 @@ func Seed() *Memory {
 			Created: "2026-09-02T00:00:00Z", Updated: "2026-09-20T00:00:00Z", Project: "SDP",
 		},
 		{
+			Key: "SDP-2", Site: hostDevel, BrowseURL: domain.BrowseURL(hostDevel, "SDP-2"),
+			Summary: "Portal follow-up", Description: "Second licensed SDP on sesamidevel",
+			Status: "To Do", IssueType: "Task", Priority: "Low",
+			Assignee: "Mason Huemmer", Reporter: "Mason Huemmer",
+			Created: "2026-09-02T12:00:00Z", Updated: "2026-09-20T00:00:00Z", Project: "SDP",
+		},
+		{
 			Key: "SES-1", Site: hostDevel, BrowseURL: domain.BrowseURL(hostDevel, "SES-1"),
 			Summary: "Platform item", Description: "SES on sesamidevel",
 			Status: "In Progress", IssueType: "Story", Priority: "High",

@@ -26,6 +26,8 @@ func runJira(args []string, d Deps, format string) int {
 		return jiraComment(args, d, format)
 	case "transition":
 		return jiraTransition(args, d, format)
+	case "link":
+		return jiraLink(args, d, format)
 	default:
 		return fail(d, domain.Usagef("unknown jira verb %q", verb))
 	}
@@ -296,6 +298,76 @@ func jiraTransition(args []string, d Deps, format string) int {
 	return success(d, format, iss)
 }
 
+func jiraLink(args []string, d Deps, format string) int {
+	if hasHelp(args) {
+		return writeHelp(d.Stdout, jiraHelp)
+	}
+	fsset := flag.NewFlagSet("jira link", flag.ContinueOnError)
+	fsset.SetOutput(d.Stderr)
+	siteFlag := fsset.String("site", "", "site alias, hostname, or UUID")
+	linkType := fsset.String("type", "", "link type (default Relates)")
+	dry := fsset.Bool("dry-run", false, "")
+	if err := parseMixed(fsset, args); err != nil {
+		return fail(d, domain.Usage(err.Error()))
+	}
+	inward := fsset.Arg(0)
+	outward := fsset.Arg(1)
+	if strings.TrimSpace(inward) == "" || strings.TrimSpace(outward) == "" {
+		return fail(d, domain.Usage("link requires inward and outward issue keys").WithHint("atlas jira link SDO-1 SDP-2 [--type Relates]"))
+	}
+	typ := strings.TrimSpace(*linkType)
+	if typ == "" {
+		typ = domain.DefaultLinkType
+	}
+	inSite, err := domain.Resolve(domain.ResolveInput{Site: *siteFlag, Issue: inward})
+	if err != nil {
+		return fail(d, err)
+	}
+	outSite, err := domain.Resolve(domain.ResolveInput{Site: *siteFlag, Issue: outward})
+	if err != nil {
+		return fail(d, err)
+	}
+	if inSite.Hostname != outSite.Hostname {
+		return fail(d, domain.Usage("cannot link issues across clouds").WithHint("SDO↔SDP is allowed (sesamidevel); SDO↔CAB is not"))
+	}
+	if err := refuseGardaJira(inSite); err != nil {
+		return fail(d, err)
+	}
+	if d.Jira == nil {
+		return fail(d, domain.Service("jira adapter not configured"))
+	}
+	inward = strings.ToUpper(strings.TrimSpace(inward))
+	outward = strings.ToUpper(strings.TrimSpace(outward))
+	if err := d.Jira.Link(ctx(), inSite.Hostname, inward, outward, typ, *dry); err != nil {
+		return fail(d, err)
+	}
+	if *dry {
+		return success(d, format, jiraDryRun{
+			DryRun:    true,
+			Namespace: "jira",
+			Verb:      "link",
+			Inward:    inward,
+			Outward:   outward,
+			Type:      typ,
+		})
+	}
+	inIss, err := d.Jira.Get(ctx(), inSite.Hostname, inward)
+	if err != nil {
+		return fail(d, err)
+	}
+	outIss, err := d.Jira.Get(ctx(), inSite.Hostname, outward)
+	if err != nil {
+		return fail(d, err)
+	}
+	return success(d, format, jiraLinkResult{Type: typ, Inward: inIss, Outward: outIss})
+}
+
+type jiraLinkResult struct {
+	Type    string       `json:"type"`
+	Inward  domain.Issue `json:"inward"`
+	Outward domain.Issue `json:"outward"`
+}
+
 type jiraDryRun struct {
 	DryRun    bool   `json:"dry_run"`
 	Namespace string `json:"namespace"`
@@ -305,6 +377,9 @@ type jiraDryRun struct {
 	Key       string `json:"key,omitempty"`
 	Name      string `json:"name,omitempty"`
 	Body      string `json:"body,omitempty"`
+	Inward    string `json:"inward,omitempty"`
+	Outward   string `json:"outward,omitempty"`
+	Type      string `json:"type,omitempty"`
 }
 
 func parseFieldsJSON(s string) (map[string]any, error) {

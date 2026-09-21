@@ -7,7 +7,7 @@ Usage: atlas <namespace> <verb> [flags]
 Namespaces:
   auth      sign in, status, logout (core, not a workload)
   site      list and resolve the three known clouds
-  jira      get, search, create, edit, comment, transition on one site
+  jira      get, search, create, edit, comment, transition, link on one site
   mcp       stdio MCP for agents (serve)
 
 Output: JSON on stdout by default. --human for text. Diagnostics on stderr.
@@ -40,19 +40,22 @@ Output: JSON (default) or --human.
 
 const jiraHelp = `atlas jira — licensed Jira on one cloud
 
-Verbs: get, search, create, edit, comment, transition
+Verbs: get, search, create, edit, comment, transition, link
 get:        atlas jira get SDO-1
 search:     atlas jira search --jql 'project = CAB' [--site sesami-io]
 create:     atlas jira create --project SDO --type Task --summary '...'
 edit:       atlas jira edit SDO-1 --fields '{...}'
 comment:    atlas jira comment SDO-1 --body '...'
 transition: atlas jira transition SDO-1 --name Done
+link:       atlas jira link SDO-1 SDP-2 [--type Relates]
 
 SDO/SDP/SES → sesamidevel. CAB → sesami-io. Combined JQL project in (SDO, CAB)
 is usage. --site is required only when inference cannot run.
 Garda is not Jira search: use atlas jsm, not atlas jira search.
 SDP has no Story type. SDP comments are licensed Jira comments (no public flag).
 Transitions match by name: SDO/SES Done; SDP Task Mark as done; SDP Incident Resolve.
+link default type is Relates. Both keys must be the same cloud (SDO↔SDP ok; SDO↔CAB usage).
+When type is Blocks, inward is the blocker and outward is the blocked issue.
 MCP writes dry-run unless write_opt_in is true.
 
 Default search fields: summary, description, status, issuetype, priority,
