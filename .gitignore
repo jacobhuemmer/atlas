@@ -1,0 +1,19 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.exe
+*.test
+*.out
+coverage.out
+bin/
+/atlas
+vendor/
+build/
+.tools/
+*.key
+*.crt
+
+# Riptide artifacts (cloud-synced)
+.humanlayer/tasks/

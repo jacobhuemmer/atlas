@@ -1,0 +1,123 @@
+{
+  "issues": [
+    {
+      "key": "SDO-1",
+      "alias": "sesamidevel",
+      "summary": "Atlas CLI skeleton",
+      "description": "Phase 1 binary and MCP door",
+      "status": "To Do",
+      "issuetype": "Task",
+      "priority": "Medium",
+      "labels": ["atlas"],
+      "assignee": "seed-user",
+      "reporter": "seed-user",
+      "created": "2026-09-01T00:00:00Z",
+      "updated": "2026-09-20T00:00:00Z",
+      "project": "SDO",
+      "transitions": ["Done"]
+    },
+    {
+      "key": "SDP-1",
+      "alias": "sesamidevel",
+      "summary": "Portal request",
+      "description": "Licensed service desk on the first licensed cloud",
+      "status": "To Do",
+      "issuetype": "Task",
+      "priority": "Low",
+      "assignee": "seed-user",
+      "reporter": "seed-user",
+      "created": "2026-09-02T00:00:00Z",
+      "updated": "2026-09-20T00:00:00Z",
+      "project": "SDP",
+      "transitions": ["Mark as done"]
+    },
+    {
+      "key": "SDP-2",
+      "alias": "sesamidevel",
+      "summary": "Portal follow-up",
+      "description": "Second licensed service-desk issue",
+      "status": "To Do",
+      "issuetype": "Task",
+      "priority": "Low",
+      "assignee": "seed-user",
+      "reporter": "seed-user",
+      "created": "2026-09-02T12:00:00Z",
+      "updated": "2026-09-20T00:00:00Z",
+      "project": "SDP",
+      "transitions": ["Mark as done"]
+    },
+    {
+      "key": "SES-1",
+      "alias": "sesamidevel",
+      "summary": "Platform item",
+      "description": "Story on the first licensed cloud",
+      "status": "In Progress",
+      "issuetype": "Story",
+      "priority": "High",
+      "assignee": "seed-user",
+      "reporter": "seed-user",
+      "created": "2026-09-03T00:00:00Z",
+      "updated": "2026-09-20T00:00:00Z",
+      "project": "SES",
+      "transitions": ["Done"]
+    },
+    {
+      "key": "CAB-1",
+      "alias": "sesami-io",
+      "summary": "Change advisory",
+      "description": "Change on the second licensed cloud",
+      "status": "Open",
+      "issuetype": "Change",
+      "priority": "High",
+      "labels": ["cab"],
+      "assignee": "seed-user",
+      "reporter": "seed-user",
+      "created": "2026-09-04T00:00:00Z",
+      "updated": "2026-09-21T00:00:00Z",
+      "project": "CAB",
+      "transitions": ["Done"]
+    }
+  ],
+  "pages": [
+    {
+      "id": "100",
+      "alias": "sesami-io",
+      "space": "CCAB",
+      "title": "CAB-109",
+      "body": "Space page for CAB-109"
+    }
+  ],
+  "pull_requests": [
+    {
+      "id": 1,
+      "repo": "atlas",
+      "title": "Phase 6 Bitbucket PRs",
+      "description": "Seed PR for atlas pr get",
+      "source": "feature/pr-cli",
+      "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1,2 @@\n atlas\n+phase 6\n"
+    }
+  ],
+  "desks": [
+    {"id": "3", "key": "EOS", "name": "Engineering Operational Service"},
+    {"id": "12", "key": "ITSEC", "name": "IT Security"},
+    {"id": "2586", "key": "COSC", "name": "CloudOps Service Center"}
+  ],
+  "types": [
+    {"id": "40", "name": "Incident", "desk_id": "3"},
+    {"id": "50", "name": "Access request", "desk_id": "12"},
+    {"id": "60", "name": "Change", "desk_id": "2586"}
+  ],
+  "requests": [
+    {
+      "key": "EOS-1",
+      "alias": "garda",
+      "desk_id": "3",
+      "type_id": "40",
+      "summary": "Seed customer request",
+      "description": "Customer REST only; never Jira search",
+      "status": "Waiting for support",
+      "status_category": "OPEN",
+      "transitions": ["21"]
+    }
+  ]
+}

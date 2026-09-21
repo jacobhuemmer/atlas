@@ -1,0 +1,178 @@
+package rest
+
+import (
+	"context"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/masonhuemmer/atlas/internal/domain"
+)
+
+// Bitbucket is the live Cloud REST client (https://api.bitbucket.org/2.0).
+// Auth uses a licensed-site keyring slot (same Atlassian account).
+type Bitbucket struct {
+	*Client
+}
+
+func (b Bitbucket) Get(ctx context.Context, workspace, repo string, id int) (domain.PullRequest, error) {
+	cred, err := b.licensedCred()
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	u := joinURL(b.bitbucketOrigin(), "/2.0/repositories/"+q(workspace)+"/"+q(repo)+"/pullrequests/"+strconv.Itoa(id))
+	code, body, err := b.doJSON(ctx, http.MethodGet, u, cred, nil, nil)
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	if code != http.StatusOK {
+		return domain.PullRequest{}, MapBitbucketStatus(code)
+	}
+	return prFromREST(workspace, repo, mustJSON(body)), nil
+}
+
+func (b Bitbucket) List(ctx context.Context, workspace, repo string) (domain.PullRequestList, error) {
+	cred, err := b.licensedCred()
+	if err != nil {
+		return domain.PullRequestList{}, err
+	}
+	u := joinURL(b.bitbucketOrigin(), "/2.0/repositories/"+q(workspace)+"/"+q(repo)+"/pullrequests?state=OPEN")
+	code, body, err := b.doJSON(ctx, http.MethodGet, u, cred, nil, nil)
+	if err != nil {
+		return domain.PullRequestList{}, err
+	}
+	if code != http.StatusOK {
+		return domain.PullRequestList{}, MapBitbucketStatus(code)
+	}
+	var items []domain.PullRequest
+	for _, raw := range asList(mustJSON(body)["values"]) {
+		items = append(items, prFromREST(workspace, repo, asMap(raw)))
+	}
+	if items == nil {
+		items = []domain.PullRequest{}
+	}
+	return domain.PullRequestList{Workspace: workspace, Repo: repo, Count: len(items), Items: items}, nil
+}
+
+func (b Bitbucket) Create(ctx context.Context, workspace, repo string, in domain.CreatePullRequest, dryRun bool) (domain.PullRequest, error) {
+	target := in.Target
+	if target == "" {
+		target = domain.DefaultTargetBranch
+	}
+	preview := domain.PullRequest{
+		Workspace: workspace, Repo: repo, Title: in.Title, Description: in.Description,
+		Source: in.Source, Target: target, State: "OPEN", Reviewers: in.Reviewers,
+	}
+	if dryRun {
+		return preview, nil
+	}
+	cred, err := b.licensedCred()
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	payload := map[string]any{
+		"title": in.Title,
+		"source": map[string]any{
+			"branch": map[string]any{"name": in.Source},
+		},
+		"destination": map[string]any{
+			"branch": map[string]any{"name": target},
+		},
+	}
+	if in.Description != "" {
+		payload["description"] = in.Description
+	}
+	if len(in.Reviewers) > 0 {
+		var revs []any
+		for _, r := range in.Reviewers {
+			revs = append(revs, map[string]any{"uuid": r})
+		}
+		payload["reviewers"] = revs
+	}
+	u := joinURL(b.bitbucketOrigin(), "/2.0/repositories/"+q(workspace)+"/"+q(repo)+"/pullrequests")
+	code, body, err := b.doJSON(ctx, http.MethodPost, u, cred, nil, payload)
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	if code != http.StatusCreated && code != http.StatusOK {
+		return domain.PullRequest{}, MapBitbucketStatus(code)
+	}
+	return prFromREST(workspace, repo, mustJSON(body)), nil
+}
+
+func (b Bitbucket) Comment(ctx context.Context, workspace, repo string, id int, body string, dryRun bool) error {
+	if dryRun {
+		return nil
+	}
+	cred, err := b.licensedCred()
+	if err != nil {
+		return err
+	}
+	u := joinURL(b.bitbucketOrigin(), "/2.0/repositories/"+q(workspace)+"/"+q(repo)+"/pullrequests/"+strconv.Itoa(id)+"/comments")
+	code, _, err := b.doJSON(ctx, http.MethodPost, u, cred, nil, map[string]any{"content": map[string]any{"raw": body}})
+	if err != nil {
+		return err
+	}
+	if code != http.StatusCreated && code != http.StatusOK {
+		return MapBitbucketStatus(code)
+	}
+	return nil
+}
+
+func (b Bitbucket) Merge(ctx context.Context, workspace, repo string, id int, dryRun bool) (domain.PullRequest, error) {
+	if dryRun {
+		return b.Get(ctx, workspace, repo, id)
+	}
+	cred, err := b.licensedCred()
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	u := joinURL(b.bitbucketOrigin(), "/2.0/repositories/"+q(workspace)+"/"+q(repo)+"/pullrequests/"+strconv.Itoa(id)+"/merge")
+	code, body, err := b.doJSON(ctx, http.MethodPost, u, cred, nil, map[string]any{})
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	if code != http.StatusOK && code != http.StatusCreated {
+		return domain.PullRequest{}, MapBitbucketStatus(code)
+	}
+	return prFromREST(workspace, repo, mustJSON(body)), nil
+}
+
+func (b Bitbucket) Diff(ctx context.Context, workspace, repo string, id int) (domain.PullRequestDiff, error) {
+	cred, err := b.licensedCred()
+	if err != nil {
+		return domain.PullRequestDiff{}, err
+	}
+	u := joinURL(b.bitbucketOrigin(), "/2.0/repositories/"+q(workspace)+"/"+q(repo)+"/pullrequests/"+strconv.Itoa(id)+"/diff")
+	code, body, err := b.doBytes(ctx, http.MethodGet, u, cred, nil)
+	if err != nil {
+		return domain.PullRequestDiff{}, err
+	}
+	if code != http.StatusOK {
+		return domain.PullRequestDiff{}, MapBitbucketStatus(code)
+	}
+	return domain.PullRequestDiff{ID: id, Workspace: workspace, Repo: repo, Diff: string(body)}, nil
+}
+
+func prFromREST(workspace, repo string, m map[string]any) domain.PullRequest {
+	id := 0
+	if n, ok := m["id"].(float64); ok {
+		id = int(n)
+	}
+	src := str(asMap(asMap(m["source"])["branch"]), "name")
+	dst := str(asMap(asMap(m["destination"])["branch"]), "name")
+	state := strings.ToUpper(str(m, "state"))
+	var reviewers []string
+	for _, raw := range asList(m["reviewers"]) {
+		reviewers = append(reviewers, displayUser(asMap(raw)))
+	}
+	return domain.PullRequest{
+		ID: id, Workspace: workspace, Repo: repo, Title: str(m, "title"),
+		Description: str(m, "description"), Source: src, Target: dst, State: state,
+		URL: domain.PRURL(workspace, repo, id), Reviewers: reviewers,
+	}
+}
+
+func MapBitbucketStatus(code int) error {
+	return classify(code, "bitbucket", "pull request not found")
+}
