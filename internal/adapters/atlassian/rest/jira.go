@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/masonhuemmer/atlas/internal/domain"
@@ -41,28 +42,56 @@ func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchRe
 	if err != nil {
 		return domain.SearchResult{}, err
 	}
-	payload := map[string]any{
-		"jql":        jql,
-		"maxResults": 50,
-		"fields":     jiraFieldList,
+	vals := url.Values{}
+	vals.Set("jql", jql)
+	vals.Set("maxResults", "50")
+	for _, f := range jiraFieldList {
+		vals.Add("fields", f)
 	}
-	u := joinURL(j.origin(hostname), "/rest/api/3/search/jql")
-	code, body, err := j.doJSON(ctx, http.MethodPost, u, cred, nil, payload)
+	getURL := joinURL(j.origin(hostname), "/rest/api/3/search/jql") + "?" + vals.Encode()
+	code, body, err := j.doJSON(ctx, http.MethodGet, getURL, cred, nil, nil)
 	if err != nil {
 		return domain.SearchResult{}, err
 	}
 	if code != http.StatusOK {
-		return domain.SearchResult{}, MapStatus(code)
+		payload := map[string]any{
+			"jql":        jql,
+			"maxResults": 50,
+			"fields":     jiraFieldList,
+		}
+		postURL := joinURL(j.origin(hostname), "/rest/api/3/search/jql")
+		code, body, err = j.doJSON(ctx, http.MethodPost, postURL, cred, nil, payload)
+		if err != nil {
+			return domain.SearchResult{}, err
+		}
+		if code != http.StatusOK {
+			return domain.SearchResult{}, MapStatus(code)
+		}
 	}
-	m := mustJSON(body)
-	var items []domain.Issue
-	for _, raw := range asList(m["issues"]) {
-		items = append(items, issueFromREST(hostname, asMap(raw)))
-	}
-	if items == nil {
-		items = []domain.Issue{}
-	}
+	items := issuesFromSearch(hostname, mustJSON(body))
 	return domain.SearchResult{JQL: jql, Site: hostname, Count: len(items), Items: items}, nil
+}
+
+func issuesFromSearch(hostname string, m map[string]any) []domain.Issue {
+	raw := asList(m["issues"])
+	items := make([]domain.Issue, 0, len(raw))
+	for _, e := range raw {
+		switch t := e.(type) {
+		case map[string]any:
+			iss := issueFromREST(hostname, t)
+			if iss.Key == "" {
+				iss.Key = str(t, "key")
+			}
+			if iss.Key != "" {
+				items = append(items, iss)
+			}
+		case string:
+			if t != "" {
+				items = append(items, domain.Issue{Key: t, Site: hostname, BrowseURL: domain.BrowseURL(hostname, t)})
+			}
+		}
+	}
+	return items
 }
 
 func (j Jira) Create(ctx context.Context, hostname string, in domain.CreateIssue, dryRun bool) (domain.Issue, error) {

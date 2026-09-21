@@ -89,12 +89,9 @@ func TestJiraGetNotFound(t *testing.T) {
 }
 
 func TestJiraSearchPostsJQLAndFields(t *testing.T) {
-	var method, path string
-	var payload map[string]any
+	var method, path, rawQuery string
 	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		method, path = r.Method, r.URL.Path
-		b, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(b, &payload)
+		method, path, rawQuery = r.Method, r.URL.Path, r.URL.RawQuery
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"issues": []any{map[string]any{
 				"key": "ABC-1",
@@ -111,15 +108,11 @@ func TestJiraSearchPostsJQLAndFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if method != http.MethodPost || path != "/rest/api/3/search/jql" {
+	if method != http.MethodGet || path != "/rest/api/3/search/jql" {
 		t.Fatalf("%s %s", method, path)
 	}
-	if payload["jql"] != "project = ABC" {
-		t.Fatalf("%v", payload)
-	}
-	fields, _ := payload["fields"].([]any)
-	if len(fields) == 0 {
-		t.Fatalf("fields %v", payload["fields"])
+	if !strings.Contains(rawQuery, "jql=") || !strings.Contains(rawQuery, "fields=") {
+		t.Fatal(rawQuery)
 	}
 	if page.Count != 1 || page.Items[0].Key != "ABC-1" || page.Items[0].Summary != "hello" {
 		t.Fatalf("%+v", page)
