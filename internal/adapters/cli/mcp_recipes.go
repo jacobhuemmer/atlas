@@ -61,6 +61,9 @@ var recipeBodies = map[string]string{
 var recipeNames = []string{"jira-search", "confluence-write", "pr-review", "jsm-customer"}
 
 func recipe(topic string) (string, bool) {
+	if topic == "atlas" {
+		return skillMarkdown, true
+	}
 	s, ok := recipeBodies[topic]
 	return s, ok
 }

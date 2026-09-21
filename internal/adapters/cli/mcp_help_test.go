@@ -24,6 +24,11 @@ func TestMCPHelpNoSession(t *testing.T) {
 			t.Fatalf("overview missing %s in %s", topic, root)
 		}
 	}
+	for _, want := range []string{"atlas://skill", "topic=atlas"} {
+		if !strings.Contains(root, want) {
+			t.Fatalf("overview missing %s in %s", want, root)
+		}
+	}
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
 		Name: "atlas_help", Arguments: helpIn{Namespace: "auth"},
 	})
@@ -74,7 +79,7 @@ func TestMCPHelpTopics(t *testing.T) {
 		t.Fatal(err, toolText(t, res))
 	}
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_help", Arguments: helpIn{Topic: "jira-search", Namespace: "jira"},
+		Name: "atlas_help", Arguments: helpIn{Topic: "atlas", Namespace: "jira"},
 	})
 	if err != nil || !res.IsError {
 		t.Fatal(err, toolText(t, res))

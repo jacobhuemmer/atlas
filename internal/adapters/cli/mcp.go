@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"strings"
 
@@ -11,11 +12,17 @@ import (
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
+//go:embed skill.md
+var skillMarkdown string
+
+const skillURI = "atlas://skill"
+
 const mcpHelp = `atlas mcp — stdio MCP for agents
 
 Verbs: serve
 serve: JSON-RPC on stdin/stdout. Tools: atlas_status, atlas_help, atlas_run.
 Recipe topics: jira-search, confluence-write, pr-review, jsm-customer (also MCP prompts).
+Skill: atlas_help topic=atlas and MCP resource atlas://skill.
 Writes through atlas_run dry-run unless write_opt_in is true.
 Do not use --human. Login stays atlas auth login in a terminal.
 No session required for --help.
@@ -24,7 +31,7 @@ No session required for --help.
 type helpIn struct {
 	Namespace string `json:"namespace,omitempty" jsonschema:"optional CLI namespace"`
 	Verb      string `json:"verb,omitempty" jsonschema:"optional verb"`
-	Topic     string `json:"topic,omitempty" jsonschema:"recipe topic: jira-search, confluence-write, pr-review, or jsm-customer"`
+	Topic     string `json:"topic,omitempty" jsonschema:"recipe topic: jira-search, confluence-write, pr-review, jsm-customer, or atlas"`
 }
 
 type runIn struct {
@@ -65,11 +72,11 @@ func NewMCPServer(d Deps) *mcp.Server {
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "atlas_help",
-		Description: "CLI help for a namespace or verb, or recipe topic jira-search, confluence-write, pr-review, jsm-customer. No session required.",
+		Description: "CLI help for a namespace or verb, or recipe topic jira-search, confluence-write, pr-review, jsm-customer, atlas. No session required.",
 	}, handleHelp)
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "atlas_run",
-		Description: "Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless write_opt_in is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer.",
+		Description: "Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless write_opt_in is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer. Skill: atlas://skill.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in runIn) (*mcp.CallToolResult, any, error) {
 		args, err := buildRunArgs(in.Namespace, in.Verb, in.Args, in.Flags, in.WriteOptIn)
 		if err != nil {
@@ -81,7 +88,30 @@ func NewMCPServer(d Deps) *mcp.Server {
 		n := name
 		s.AddPrompt(&mcp.Prompt{Name: n, Description: "Lookup recipe " + n}, recipePrompt(n))
 	}
+	s.AddResource(&mcp.Resource{
+		URI:         skillURI,
+		Name:        "atlas",
+		Description: "How to call atlas_status, atlas_help, and atlas_run on one configured cloud.",
+		MIMEType:    "text/markdown",
+	}, readSkill)
 	return s
+}
+
+func readSkill(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	uri := ""
+	if req != nil && req.Params != nil {
+		uri = req.Params.URI
+	}
+	if uri != skillURI {
+		return nil, mcp.ResourceNotFoundError(uri)
+	}
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{{
+			URI:      uri,
+			MIMEType: "text/markdown",
+			Text:     strings.TrimSpace(skillMarkdown) + "\n",
+		}},
+	}, nil
 }
 
 func handleHelp(_ context.Context, _ *mcp.CallToolRequest, in helpIn) (*mcp.CallToolResult, any, error) {

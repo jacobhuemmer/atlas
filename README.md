@@ -78,7 +78,7 @@ Every call resolves one site from config. A `jsm_customer` site refuses `jira` a
 atlas mcp serve
 ```
 
-Stdio JSON-RPC for agents. Tools: `atlas_status`, `atlas_help`, `atlas_run`. Do not pass `--human`. Writes through `atlas_run` stay dry-run unless `write_opt_in` is true. Login stays `atlas auth login` in a terminal.
+Stdio JSON-RPC for agents. Tools: `atlas_status`, `atlas_help`, `atlas_run`. The embedded agent skill is available from `atlas_help` with `topic=atlas` and as the `atlas://skill` resource; it is not a fifth prompt. Do not pass `--human`. Writes through `atlas_run` stay dry-run unless `write_opt_in` is true. Login stays `atlas auth login` in a terminal.
 
 ## Develop
 
