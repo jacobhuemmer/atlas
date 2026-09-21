@@ -74,8 +74,8 @@ func applyWriteGate(ns, verb string, flags map[string]any, optIn bool) map[strin
 
 func isWrite(ns, verb string) bool {
 	switch ns + " " + verb {
-	// Phase 1: empty write list. Later: jira create|edit|comment|transition|link,
-	// confluence create|update, pr create|comment|merge, jsm create|comment|transition.
+	case "jira create", "jira edit", "jira comment", "jira transition", "jira link":
+		return true
 	}
 	return false
 }

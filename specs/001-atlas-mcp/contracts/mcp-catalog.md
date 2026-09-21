@@ -50,7 +50,7 @@ No args → overview: three tools, four recipe topics, write opt-in. `topic` set
 
 ### Write gate
 
-Phase 1 write list is empty. Later phases: `jira create|edit|comment|transition|link`, `confluence create|update`, `pr create|comment|merge`, `jsm create|comment|transition`. Writes dry-run unless `write_opt_in` is true.
+Phase 3 write list: `jira create|edit|comment|transition|link`. `jira link` is gated now; the verb lands in Phase 4. Later: `confluence create|update`, `pr create|comment|merge`, `jsm create|comment|transition`. Writes dry-run unless `write_opt_in` is true.
 
 ### Forbidden via run
 

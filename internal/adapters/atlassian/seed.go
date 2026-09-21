@@ -9,7 +9,11 @@ const (
 
 // Seed returns in-memory issues keyed by site+key for ATLAS_FAKE and tests.
 func Seed() *Memory {
-	m := &Memory{issues: map[string]domain.Issue{}}
+	m := &Memory{
+		issues:      map[string]domain.Issue{},
+		transitions: map[string][]string{},
+		next:        map[string]int{},
+	}
 	for _, iss := range []domain.Issue{
 		{
 			Key: "SDO-1", Site: hostDevel, BrowseURL: domain.BrowseURL(hostDevel, "SDO-1"),
@@ -41,15 +45,28 @@ func Seed() *Memory {
 		},
 	} {
 		m.put(iss)
+		m.transitions[memKey(iss.Site, iss.Key)] = defaultTransitions(iss.Project, iss.IssueType)
+		if n := issueNumber(iss.Key); n+1 > m.next[iss.Project] {
+			m.next[iss.Project] = n + 1
+		}
 	}
 	return m
 }
 
 func (m *Memory) put(iss domain.Issue) {
-	if iss.BrowseURL == "" {
-		iss.BrowseURL = domain.BrowseURL(iss.Site, iss.Key)
+	m.putLocked(iss)
+}
+
+func issueNumber(key string) int {
+	i := len(key) - 1
+	n := 0
+	mult := 1
+	for i >= 0 && key[i] >= '0' && key[i] <= '9' {
+		n += int(key[i]-'0') * mult
+		mult *= 10
+		i--
 	}
-	m.issues[memKey(iss.Site, iss.Key)] = iss
+	return n
 }
 
 func memKey(hostname, key string) string {

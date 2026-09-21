@@ -1,5 +1,8 @@
 package domain
 
+// DefaultAssigneeAccountID is Mason Huemmer on Sesami licensed sites.
+const DefaultAssigneeAccountID = "712020:092d1246-2a54-4f40-8317-ef3dc777bf3c"
+
 // Issue is one licensed Jira issue on a single cloud.
 // Site is the hostname. BrowseURL is https://<hostname>/browse/<KEY>.
 type Issue struct {
@@ -17,6 +20,7 @@ type Issue struct {
 	Created     string   `json:"created,omitempty"`
 	Updated     string   `json:"updated,omitempty"`
 	Project     string   `json:"project"`
+	Comments    []string `json:"comments,omitempty"`
 }
 
 // SearchResult is one-site JQL output. Items use the default search fields.
@@ -25,6 +29,17 @@ type SearchResult struct {
 	Site  string  `json:"site"`
 	Count int     `json:"count"`
 	Items []Issue `json:"items"`
+}
+
+// CreateIssue is the REST field set we own for atlas jira create.
+// Markdown is the default description format. Assignee defaults to DefaultAssigneeAccountID.
+type CreateIssue struct {
+	Project     string
+	IssueType   string
+	Summary     string
+	Description string
+	Labels      []string
+	Assignee    string
 }
 
 func BrowseURL(hostname, key string) string {

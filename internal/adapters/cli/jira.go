@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"flag"
 	"strings"
 
@@ -17,6 +18,14 @@ func runJira(args []string, d Deps, format string) int {
 		return jiraGet(args, d, format)
 	case "search":
 		return jiraSearch(args, d, format)
+	case "create":
+		return jiraCreate(args, d, format)
+	case "edit":
+		return jiraEdit(args, d, format)
+	case "comment":
+		return jiraComment(args, d, format)
+	case "transition":
+		return jiraTransition(args, d, format)
 	default:
 		return fail(d, domain.Usagef("unknown jira verb %q", verb))
 	}
@@ -82,6 +91,235 @@ func jiraSearch(args []string, d Deps, format string) int {
 		return fail(d, err)
 	}
 	return success(d, format, page)
+}
+
+func jiraCreate(args []string, d Deps, format string) int {
+	if hasHelp(args) {
+		return writeHelp(d.Stdout, jiraHelp)
+	}
+	fsset := flag.NewFlagSet("jira create", flag.ContinueOnError)
+	fsset.SetOutput(d.Stderr)
+	siteFlag := fsset.String("site", "", "site alias, hostname, or UUID")
+	project := fsset.String("project", "", "project key (SDO, SDP, SES, CAB)")
+	issuetype := fsset.String("type", "", "issuetype.name (Task, Story, Incident, Change)")
+	summary := fsset.String("summary", "", "summary")
+	description := fsset.String("description", "", "markdown description")
+	assignee := fsset.String("assignee", "", "assignee.accountId")
+	dry := fsset.Bool("dry-run", false, "")
+	var labels []string
+	fsset.Func("labels", "labels (repeatable or comma-separated)", func(s string) error {
+		for _, p := range strings.Split(s, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				labels = append(labels, p)
+			}
+		}
+		return nil
+	})
+	if err := parseMixed(fsset, args); err != nil {
+		return fail(d, domain.Usage(err.Error()))
+	}
+	if strings.TrimSpace(*project) == "" || strings.TrimSpace(*issuetype) == "" || strings.TrimSpace(*summary) == "" {
+		return fail(d, domain.Usage("create requires --project, --type, and --summary").WithHint("atlas jira create --project SDO --type Task --summary '…'"))
+	}
+	if strings.EqualFold(strings.TrimSpace(*project), "SDP") && strings.EqualFold(strings.TrimSpace(*issuetype), "Story") {
+		return fail(d, domain.Usage("SDP has no Story type").WithHint("use Task or Incident"))
+	}
+	site, err := domain.Resolve(domain.ResolveInput{Site: *siteFlag, Project: *project})
+	if err != nil {
+		return fail(d, err)
+	}
+	if err := refuseGardaJira(site); err != nil {
+		return fail(d, err)
+	}
+	if d.Jira == nil {
+		return fail(d, domain.Service("jira adapter not configured"))
+	}
+	in := domain.CreateIssue{
+		Project:     strings.ToUpper(strings.TrimSpace(*project)),
+		IssueType:   strings.TrimSpace(*issuetype),
+		Summary:     strings.TrimSpace(*summary),
+		Description: *description,
+		Labels:      labels,
+		Assignee:    strings.TrimSpace(*assignee),
+	}
+	if in.Assignee == "" {
+		in.Assignee = domain.DefaultAssigneeAccountID
+	}
+	iss, err := d.Jira.Create(ctx(), site.Hostname, in, *dry)
+	if err != nil {
+		return fail(d, err)
+	}
+	if *dry {
+		return success(d, format, jiraDryRun{
+			DryRun:    true,
+			Namespace: "jira",
+			Verb:      "create",
+			Project:   in.Project,
+			Summary:   in.Summary,
+		})
+	}
+	return success(d, format, iss)
+}
+
+func jiraEdit(args []string, d Deps, format string) int {
+	if hasHelp(args) {
+		return writeHelp(d.Stdout, jiraHelp)
+	}
+	fsset := flag.NewFlagSet("jira edit", flag.ContinueOnError)
+	fsset.SetOutput(d.Stderr)
+	siteFlag := fsset.String("site", "", "site alias, hostname, or UUID")
+	fieldsJSON := fsset.String("fields", "", "JSON object of REST field names")
+	dry := fsset.Bool("dry-run", false, "")
+	if err := parseMixed(fsset, args); err != nil {
+		return fail(d, domain.Usage(err.Error()))
+	}
+	key := fsset.Arg(0)
+	if strings.TrimSpace(key) == "" {
+		return fail(d, domain.Usage("issue key is required").WithHint("atlas jira edit SDO-1 --fields '{...}'"))
+	}
+	fields, err := parseFieldsJSON(*fieldsJSON)
+	if err != nil {
+		return fail(d, err)
+	}
+	site, err := domain.Resolve(domain.ResolveInput{Site: *siteFlag, Issue: key})
+	if err != nil {
+		return fail(d, err)
+	}
+	if err := refuseGardaJira(site); err != nil {
+		return fail(d, err)
+	}
+	if d.Jira == nil {
+		return fail(d, domain.Service("jira adapter not configured"))
+	}
+	iss, err := d.Jira.Edit(ctx(), site.Hostname, key, fields, *dry)
+	if err != nil {
+		return fail(d, err)
+	}
+	if *dry {
+		return success(d, format, jiraDryRun{
+			DryRun:    true,
+			Namespace: "jira",
+			Verb:      "edit",
+			Key:       strings.ToUpper(strings.TrimSpace(key)),
+		})
+	}
+	return success(d, format, iss)
+}
+
+func jiraComment(args []string, d Deps, format string) int {
+	if hasHelp(args) {
+		return writeHelp(d.Stdout, jiraHelp)
+	}
+	fsset := flag.NewFlagSet("jira comment", flag.ContinueOnError)
+	fsset.SetOutput(d.Stderr)
+	siteFlag := fsset.String("site", "", "site alias, hostname, or UUID")
+	body := fsset.String("body", "", "markdown comment body")
+	dry := fsset.Bool("dry-run", false, "")
+	if err := parseMixed(fsset, args); err != nil {
+		return fail(d, domain.Usage(err.Error()))
+	}
+	key := fsset.Arg(0)
+	if strings.TrimSpace(key) == "" {
+		return fail(d, domain.Usage("issue key is required").WithHint("atlas jira comment SDO-1 --body '…'"))
+	}
+	if strings.TrimSpace(*body) == "" {
+		return fail(d, domain.Usage("comment requires --body").WithHint("atlas jira comment SDO-1 --body '…'"))
+	}
+	site, err := domain.Resolve(domain.ResolveInput{Site: *siteFlag, Issue: key})
+	if err != nil {
+		return fail(d, err)
+	}
+	if err := refuseGardaJira(site); err != nil {
+		return fail(d, err)
+	}
+	if d.Jira == nil {
+		return fail(d, domain.Service("jira adapter not configured"))
+	}
+	if err := d.Jira.Comment(ctx(), site.Hostname, key, *body, *dry); err != nil {
+		return fail(d, err)
+	}
+	if *dry {
+		return success(d, format, jiraDryRun{
+			DryRun:    true,
+			Namespace: "jira",
+			Verb:      "comment",
+			Key:       strings.ToUpper(strings.TrimSpace(key)),
+			Body:      *body,
+		})
+	}
+	return success(d, format, map[string]any{"key": strings.ToUpper(strings.TrimSpace(key)), "body": *body})
+}
+
+func jiraTransition(args []string, d Deps, format string) int {
+	if hasHelp(args) {
+		return writeHelp(d.Stdout, jiraHelp)
+	}
+	fsset := flag.NewFlagSet("jira transition", flag.ContinueOnError)
+	fsset.SetOutput(d.Stderr)
+	siteFlag := fsset.String("site", "", "site alias, hostname, or UUID")
+	name := fsset.String("name", "", "transition name (not id)")
+	dry := fsset.Bool("dry-run", false, "")
+	if err := parseMixed(fsset, args); err != nil {
+		return fail(d, domain.Usage(err.Error()))
+	}
+	key := fsset.Arg(0)
+	if strings.TrimSpace(key) == "" {
+		return fail(d, domain.Usage("issue key is required").WithHint("atlas jira transition SDO-1 --name Done"))
+	}
+	if strings.TrimSpace(*name) == "" {
+		return fail(d, domain.Usage("transition requires --name").WithHint("SDO/SES: Done; SDP Task: Mark as done; SDP Incident: Resolve"))
+	}
+	site, err := domain.Resolve(domain.ResolveInput{Site: *siteFlag, Issue: key})
+	if err != nil {
+		return fail(d, err)
+	}
+	if err := refuseGardaJira(site); err != nil {
+		return fail(d, err)
+	}
+	if d.Jira == nil {
+		return fail(d, domain.Service("jira adapter not configured"))
+	}
+	iss, err := d.Jira.Transition(ctx(), site.Hostname, key, *name, *dry)
+	if err != nil {
+		return fail(d, err)
+	}
+	if *dry {
+		return success(d, format, jiraDryRun{
+			DryRun:    true,
+			Namespace: "jira",
+			Verb:      "transition",
+			Key:       strings.ToUpper(strings.TrimSpace(key)),
+			Name:      strings.TrimSpace(*name),
+		})
+	}
+	return success(d, format, iss)
+}
+
+type jiraDryRun struct {
+	DryRun    bool   `json:"dry_run"`
+	Namespace string `json:"namespace"`
+	Verb      string `json:"verb"`
+	Project   string `json:"project,omitempty"`
+	Summary   string `json:"summary,omitempty"`
+	Key       string `json:"key,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Body      string `json:"body,omitempty"`
+}
+
+func parseFieldsJSON(s string) (map[string]any, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, domain.Usage("edit requires --fields JSON").WithHint(`atlas jira edit SDO-1 --fields '{"summary":"…"}'`)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal([]byte(s), &fields); err != nil {
+		return nil, domain.Usage("fields must be a JSON object").WithHint(`atlas jira edit SDO-1 --fields '{"summary":"…"}'`)
+	}
+	if fields == nil {
+		return nil, domain.Usage("fields must be a JSON object")
+	}
+	return fields, nil
 }
 
 func refuseGardaJira(site domain.Site) error {
