@@ -7,6 +7,7 @@ Usage: atlas <namespace> <verb> [flags]
 Namespaces:
   auth      sign in, status, logout (core, not a workload)
   site      list and resolve the three known clouds
+  jira      get and search licensed issues on one site
   mcp       stdio MCP for agents (serve)
 
 Output: JSON on stdout by default. --human for text. Diagnostics on stderr.
@@ -34,5 +35,21 @@ Verbs: list, resolve
 list:    sesamidevel, sesami-io, garda (UUID is display-only)
 resolve: alias, hostname, or UUID → one Site
 REST later uses hostname, not UUID.
+Output: JSON (default) or --human.
+`
+
+const jiraHelp = `atlas jira — licensed Jira on one cloud
+
+Verbs: get, search
+get:    atlas jira get SDO-1
+search: atlas jira search --jql 'project = CAB' [--site sesami-io]
+
+SDO/SDP/SES → sesamidevel. CAB → sesami-io. Combined JQL project in (SDO, CAB)
+is usage. --site is required only when inference cannot run.
+Garda is not Jira search: use atlas jsm, not atlas jira search.
+
+Default search fields: summary, description, status, issuetype, priority,
+labels, assignee, reporter, created, updated, project.
+Browse URL: https://<hostname>/browse/<KEY>
 Output: JSON (default) or --human.
 `

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/masonhuemmer/atlas/internal/adapters/atlassian"
 	"github.com/masonhuemmer/atlas/internal/adapters/cli"
 	"github.com/masonhuemmer/atlas/internal/adapters/keychain"
 	"github.com/masonhuemmer/atlas/internal/app/auth"
@@ -15,6 +16,8 @@ func main() {
 	cfg, _ := config.Load()
 	d := cli.Deps{Config: cfg}
 	if os.Getenv("ATLAS_FAKE") == "1" {
+		mem := atlassian.Seed()
+		d.Jira = atlassian.JiraAPI{Memory: mem}
 		d.Store = &keychain.FileStore{Path: keychain.FakeSessionPath()}
 		d.Login = auth.FakeLogin()
 	} else {

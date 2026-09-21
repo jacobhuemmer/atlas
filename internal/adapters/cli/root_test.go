@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/masonhuemmer/atlas/internal/adapters/atlassian"
 	"github.com/masonhuemmer/atlas/internal/adapters/keychain"
 	"github.com/masonhuemmer/atlas/internal/app/auth"
 	"github.com/masonhuemmer/atlas/internal/config"
@@ -17,6 +18,7 @@ func testDeps() (Deps, *bytes.Buffer, *bytes.Buffer) {
 		Config: config.Config{},
 		Store:  &keychain.Fake{},
 		Login:  auth.FakeLogin(),
+		Jira:   atlassian.JiraAPI{Memory: atlassian.Seed()},
 		Stdout: out,
 		Stderr: errw,
 	}
@@ -30,7 +32,7 @@ func TestHelpNoSession(t *testing.T) {
 		t.Fatal(code)
 	}
 	s := out.String()
-	for _, want := range []string{"auth", "site", "mcp", "JSON", "3", "4", "5", "6"} {
+	for _, want := range []string{"auth", "site", "jira", "mcp", "JSON", "3", "4", "5", "6"} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("missing %q in %s", want, s)
 		}

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/masonhuemmer/atlas/internal/app/auth"
+	"github.com/masonhuemmer/atlas/internal/app/jira"
 	"github.com/masonhuemmer/atlas/internal/config"
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
@@ -19,6 +20,7 @@ type Deps struct {
 	Config config.Config
 	Store  auth.Store
 	Login  auth.LoginFn
+	Jira   jira.Store
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
@@ -51,6 +53,8 @@ func Run(args []string, d Deps) int {
 		return runAuth(rest, d, format, verbose)
 	case "site":
 		return runSite(rest, d, format)
+	case "jira":
+		return runJira(rest, d, format)
 	case "mcp":
 		return runMCP(rest, d, format)
 	default:

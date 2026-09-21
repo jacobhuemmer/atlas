@@ -14,3 +14,6 @@ build/
 .tools/
 *.key
 *.crt
+
+# Riptide artifacts (cloud-synced)
+.humanlayer/tasks/
