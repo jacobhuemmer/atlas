@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/masonhuemmer/atlas/internal/domain"
@@ -45,9 +46,7 @@ func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchRe
 	vals := url.Values{}
 	vals.Set("jql", jql)
 	vals.Set("maxResults", "50")
-	for _, f := range jiraFieldList {
-		vals.Add("fields", f)
-	}
+	vals.Set("fields", strings.Join(jiraFieldList, ","))
 	getURL := joinURL(j.origin(hostname), "/rest/api/3/search/jql") + "?" + vals.Encode()
 	code, body, err := j.doJSON(ctx, http.MethodGet, getURL, cred, nil, nil)
 	if err != nil {
@@ -68,7 +67,7 @@ func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchRe
 			return domain.SearchResult{}, MapStatus(code)
 		}
 	}
-	items := issuesFromSearch(hostname, mustJSON(body))
+	items := j.hydrateSearch(ctx, hostname, issuesFromSearch(hostname, mustJSON(body)))
 	return domain.SearchResult{JQL: jql, Site: hostname, Count: len(items), Items: items}, nil
 }
 
@@ -82,6 +81,9 @@ func issuesFromSearch(hostname string, m map[string]any) []domain.Issue {
 			if iss.Key == "" {
 				iss.Key = str(t, "key")
 			}
+			if iss.Key == "" {
+				iss.Key = issueIDString(t["id"])
+			}
 			if iss.Key != "" {
 				items = append(items, iss)
 			}
@@ -89,9 +91,42 @@ func issuesFromSearch(hostname string, m map[string]any) []domain.Issue {
 			if t != "" {
 				items = append(items, domain.Issue{Key: t, Site: hostname, BrowseURL: domain.BrowseURL(hostname, t)})
 			}
+		case float64:
+			id := strconv.FormatInt(int64(t), 10)
+			items = append(items, domain.Issue{Key: id, Site: hostname})
 		}
 	}
 	return items
+}
+
+func issueIDString(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return strconv.FormatInt(int64(t), 10)
+	default:
+		return ""
+	}
+}
+
+func (j Jira) hydrateSearch(ctx context.Context, hostname string, items []domain.Issue) []domain.Issue {
+	out := make([]domain.Issue, 0, len(items))
+	for _, iss := range items {
+		if iss.Summary != "" && strings.Contains(iss.Key, "-") {
+			out = append(out, iss)
+			continue
+		}
+		got, err := j.Get(ctx, hostname, iss.Key)
+		if err != nil {
+			if iss.Key != "" {
+				out = append(out, iss)
+			}
+			continue
+		}
+		out = append(out, got)
+	}
+	return out
 }
 
 func (j Jira) Create(ctx context.Context, hostname string, in domain.CreateIssue, dryRun bool) (domain.Issue, error) {

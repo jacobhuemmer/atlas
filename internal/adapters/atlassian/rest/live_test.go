@@ -119,6 +119,34 @@ func TestJiraSearchPostsJQLAndFields(t *testing.T) {
 	}
 }
 
+func TestJiraSearchHydratesIDOnlyHits(t *testing.T) {
+	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/search/jql":
+			_ = json.NewEncoder(w).Encode(map[string]any{"issues": []any{map[string]any{"id": "10001"}}})
+		case strings.Contains(r.URL.Path, "/rest/api/3/issue/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"key": "ABC-1",
+				"fields": map[string]any{
+					"summary":   "hello",
+					"status":    map[string]any{"name": "To Do"},
+					"issuetype": map[string]any{"name": "Task"},
+					"project":   map[string]any{"key": "ABC"},
+				},
+			})
+		default:
+			t.Fatal(r.URL.Path)
+		}
+	}))
+	page, err := Jira{Client: c}.Search(context.Background(), "dev.example.atlassian.net", "project = ABC")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Count != 1 || page.Items[0].Key != "ABC-1" || page.Items[0].Summary != "hello" {
+		t.Fatalf("%+v", page)
+	}
+}
+
 func TestJiraCreateDryRunDoesNotPOST(t *testing.T) {
 	hit := false
 	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
