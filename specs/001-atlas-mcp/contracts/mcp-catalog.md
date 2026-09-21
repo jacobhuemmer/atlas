@@ -11,8 +11,8 @@ Transport: stdio only. No SSE, no Streamable HTTP.
 | Name | Description (MUST convey) | Session |
 | --- | --- | --- |
 | `atlas_status` | Signed-in, session usable, per-site role. No tokens. Does not open a browser. | Optional |
-| `atlas_help` | CLI help for a namespace or verb, or a recipe `topic` (`jira-search`, `confluence-write`, `pr-review`, `jsm-customer`). No session required. | None |
-| `atlas_run` | Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless `write_opt_in` is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer. | Required for workloads |
+| `atlas_help` | CLI help for a namespace or verb, or a recipe `topic` (`jira-search`, `confluence-write`, `pr-review`, `jsm-customer`, `atlas`). No session required. | None |
+| `atlas_run` | Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless `write_opt_in` is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer. Skill: `atlas://skill`. | Required for workloads |
 
 Unknown tool name → MCP protocol error. Do not add `atlas_login`, or per-verb tools.
 
@@ -32,13 +32,17 @@ Signed out → success, `signed_in` false, no interactive login.
 | --- | --- | --- |
 | `namespace` | string | no |
 | `verb` | string | no |
-| `topic` | string | no (`jira-search` \| `confluence-write` \| `pr-review` \| `jsm-customer`) |
+| `topic` | string | no (`jira-search` \| `confluence-write` \| `pr-review` \| `jsm-customer` \| `atlas`) |
 
-No args → overview: three tools, four recipe topics, write opt-in. `topic` set → recipe text. `namespace` / `verb` → CLI help. `topic` and `namespace` together → usage. Unknown topic → usage. No session. Text, not JSON.
+No args → overview: three tools, four recipe topics, skill resource, write opt-in. `topic` set → recipe or skill text. `namespace` / `verb` → CLI help. `topic` and `namespace` together → usage. Unknown topic → usage. No session. Text, not JSON.
 
 ## Named recipes (MCP prompts)
 
-`prompts/list` MUST return exactly: `jira-search`, `confluence-write`, `pr-review`, `jsm-customer`. `prompts/get` returns the same body as `atlas_help` for that topic. MUST NOT add a fourth tool.
+`prompts/list` MUST return exactly: `jira-search`, `confluence-write`, `pr-review`, `jsm-customer`. `prompts/get` returns the same body as `atlas_help` for that topic. MUST NOT add a fifth prompt. The baked skill is not a prompt.
+
+## Skill resource
+
+`resources/list` MUST include `atlas://skill` (`text/markdown`). `resources/read` returns the same body as `atlas_help` `topic=atlas`. Unknown resource URIs MUST fail without returning the skill body. This is how the binary ships the agent skill.
 
 ## `atlas_run`
 

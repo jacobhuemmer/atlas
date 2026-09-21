@@ -11,3 +11,11 @@ Feature: MCP catalog and status
     Given an MCP server
     When the client lists MCP prompts
     Then the prompts are jira-search, confluence-write, pr-review, jsm-customer
+  Scenario: skill resource
+    Given an MCP server
+    When the client lists MCP resources
+    Then the skill resource is atlas://skill with media type text/markdown
+  Scenario: unknown skill resource
+    Given an MCP server
+    When the client reads an unknown MCP resource
+    Then the resource read fails without returning the skill
