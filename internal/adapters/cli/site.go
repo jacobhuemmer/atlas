@@ -9,7 +9,11 @@ func runSite(args []string, d Deps, format string) int {
 	verb := args[0]
 	switch verb {
 	case "list":
-		return success(d, format, domain.Sites)
+		sites := domain.Sites()
+		if len(sites) == 0 {
+			return fail(d, domain.Usage("no sites configured").WithHint("write $XDG_CONFIG_HOME/atlas/config.toml or set ATLAS_CONFIG"))
+		}
+		return success(d, format, sites)
 	case "resolve":
 		if len(args) < 2 || args[1] == "--help" || args[1] == "-h" {
 			return writeHelp(d.Stdout, siteHelp)

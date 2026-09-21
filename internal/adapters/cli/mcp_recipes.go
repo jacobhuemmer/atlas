@@ -5,50 +5,49 @@ const (
 
 Resolve one site, then search or get. Never dual-query clouds.
 
-  atlas jira get SDO-1
-  atlas jira search --jql 'project = CAB'
-  atlas_run namespace=jira verb=get args=["SDO-1"]
+  atlas jira get KEY-1
+  atlas jira search --jql 'project = KEY'
+  atlas_run namespace=jira verb=get args=["KEY-1"]
 
-SDO/SDP/SES → sesamidevel. CAB → sesami-io. Combined JQL project in (SDO, CAB) is usage.
-Garda is not Jira search: use atlas jsm.
+Project keys map to a site in config. Combined JQL that names two sites is usage.
+A jsm_customer site is not Jira search: use atlas jsm.
 
-Do not print tokens. Do not invent a fourth cloud.
+Do not print tokens.
 `
 
 	recipeConfluenceWrite = `confluence-write
 
-CCAB lives on sesami-io. No delete verb.
+Space keys map to a site in config. No delete verb.
 
-  atlas confluence search --cql 'space = CCAB AND type = page AND title ~ "CAB-109"'
-  atlas confluence create --space CCAB --title '…' --body '…' --dry-run
-  atlas_run namespace=confluence verb=create flags space=CCAB title=… body=…
+  atlas confluence search --cql 'space = KEY AND type = page'
+  atlas confluence create --space KEY --title '…' --body '…' --dry-run
+  atlas_run namespace=confluence verb=create flags space=KEY title=… body=…
 
 MCP writes dry-run unless write_opt_in is true.
 `
 
 	recipePRReview = `pr-review
 
-Bitbucket Cloud REST, default workspace sesamiio. No PR delete. SSH stays out.
+Bitbucket Cloud REST. Workspace from config defaults.workspace. No PR delete. SSH stays out.
 
-  atlas pr get --repo atlas --id 1
-  atlas pr comment --repo atlas --id 1 --body '…' --dry-run
-  atlas pr merge --repo atlas --id 1 --dry-run
-  atlas_run namespace=pr verb=get flags repo=atlas id=1
+  atlas pr get --repo SLUG --id 1
+  atlas pr comment --repo SLUG --id 1 --body '…' --dry-run
+  atlas pr merge --repo SLUG --id 1 --dry-run
+  atlas_run namespace=pr verb=get flags repo=SLUG id=1
 
-Merge is a write. Reviewer updates are REST fields, not a missing Rovo action.
+Merge is a write. Reviewer updates are REST fields.
 `
 
-	recipeJSMGarda = `jsm-garda
+	recipeJSMCustomer = `jsm-customer
 
-Garda World is a JSM customer portal. Never Jira search on gardaworld.
+JSM customer portal REST. Never Jira search on a jsm_customer site.
 
-  atlas jsm desks --site garda
+  atlas jsm desks --site ALIAS
   atlas jsm list --status open
-  atlas jsm comment EOS-1 --body '…' --dry-run
-  atlas_run namespace=jsm verb=desks flags site=garda
+  atlas jsm comment KEY-1 --body '…' --dry-run
+  atlas_run namespace=jsm verb=desks flags site=ALIAS
 
-Comments are public: true only. Credentials are the Garda keyring slot.
-sesami-io portal/1 is out of this pass; SDP stays atlas jira.
+Comments are public: true only. Credentials are the customer keyring slot.
 `
 )
 
@@ -56,10 +55,10 @@ var recipeBodies = map[string]string{
 	"jira-search":      recipeJiraSearch,
 	"confluence-write": recipeConfluenceWrite,
 	"pr-review":        recipePRReview,
-	"jsm-garda":        recipeJSMGarda,
+	"jsm-customer":     recipeJSMCustomer,
 }
 
-var recipeNames = []string{"jira-search", "confluence-write", "pr-review", "jsm-garda"}
+var recipeNames = []string{"jira-search", "confluence-write", "pr-review", "jsm-customer"}
 
 func recipe(topic string) (string, bool) {
 	s, ok := recipeBodies[topic]

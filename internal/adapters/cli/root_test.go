@@ -14,9 +14,13 @@ import (
 
 func testDeps() (Deps, *bytes.Buffer, *bytes.Buffer) {
 	out, errw := &bytes.Buffer{}, &bytes.Buffer{}
+	cfg, err := config.LoadFake()
+	if err != nil {
+		panic(err)
+	}
 	mem := atlassian.Seed()
 	d := Deps{
-		Config:     config.Config{},
+		Config:     cfg,
 		Store:      &keychain.Fake{},
 		Login:      auth.FakeLogin(),
 		Jira:       atlassian.JiraAPI{Memory: mem},

@@ -21,7 +21,7 @@ func TestPRGetSeed(t *testing.T) {
 	if pr.Title == "" {
 		t.Fatalf("%+v", pr)
 	}
-	if pr.Workspace != domain.DefaultWorkspace {
+	if pr.Workspace != domain.DefaultWorkspace() {
 		t.Fatalf("workspace %q", pr.Workspace)
 	}
 	if pr.Repo != "atlas" || pr.ID != 1 {
@@ -42,7 +42,7 @@ func TestPRListSeed(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &page); err != nil {
 		t.Fatal(err, out.String())
 	}
-	if page.Workspace != domain.DefaultWorkspace || page.Repo != "atlas" {
+	if page.Workspace != domain.DefaultWorkspace() || page.Repo != "atlas" {
 		t.Fatalf("%+v", page)
 	}
 	if page.Count == 0 {
@@ -50,7 +50,7 @@ func TestPRListSeed(t *testing.T) {
 	}
 	found := false
 	for _, it := range page.Items {
-		if it.ID == 1 && it.Workspace == domain.DefaultWorkspace {
+		if it.ID == 1 && it.Workspace == domain.DefaultWorkspace() {
 			found = true
 		}
 	}
@@ -69,7 +69,7 @@ func TestPRDiffSeed(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &diff); err != nil {
 		t.Fatal(err, out.String())
 	}
-	if diff.ID != 1 || diff.Workspace != domain.DefaultWorkspace {
+	if diff.ID != 1 || diff.Workspace != domain.DefaultWorkspace() {
 		t.Fatalf("%+v", diff)
 	}
 	if !strings.Contains(diff.Diff, "diff --git") {

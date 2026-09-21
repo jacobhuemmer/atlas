@@ -1,5 +1,5 @@
 class Atlas < Formula
-  desc "Atlassian CLI for Sesami and Garda sites"
+  desc "Atlassian CLI for Jira, Confluence, Bitbucket, and JSM customer REST"
   homepage "https://github.com/masonhuemmer/atlas"
   license "MIT"
   head "https://github.com/masonhuemmer/atlas.git", branch: "main"

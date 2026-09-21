@@ -13,7 +13,10 @@ import (
 )
 
 func main() {
-	cfg, _ := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		os.Exit(cli.Fail(cli.Deps{}, err))
+	}
 	d := cli.Deps{Config: cfg}
 	if os.Getenv("ATLAS_FAKE") == "1" {
 		mem := atlassian.Seed()

@@ -61,7 +61,7 @@ func runAuth(args []string, d Deps, format string, verbose bool) int {
 			return fail(d, domain.Usage("auth login --from-op is a human terminal command").WithHint("run atlas auth login --site ALIAS --email EMAIL --token TOKEN in a terminal; the agent path never calls op"))
 		}
 		if *siteFlag == "" {
-			return fail(d, domain.Usage("login requires --site").WithHint("atlas auth login --site sesamidevel --email EMAIL --token TOKEN"))
+			return fail(d, domain.Usage("login requires --site").WithHint("atlas auth login --site ALIAS --email EMAIL --token TOKEN"))
 		}
 		site, err := domain.Lookup(*siteFlag)
 		if err != nil {

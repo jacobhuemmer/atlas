@@ -2,12 +2,6 @@ package domain
 
 import "strings"
 
-// GardaHostname is the only JSM customer site in v1.
-const GardaHostname = "gardaworld.atlassian.net"
-
-// DefaultJSMSite is inferred when atlas jsm omits --site.
-const DefaultJSMSite = "garda"
-
 const (
 	JSMStatusOpen   = "open"
 	JSMStatusClosed = "closed"
@@ -39,7 +33,7 @@ type Comment struct {
 	Public bool   `json:"public"`
 }
 
-// CustomerRequest is one Garda customer-portal request.
+// CustomerRequest is one customer-portal request.
 // PortalURL is https://<hostname>/servicedesk/customer/portal/{desk}/{KEY}.
 type CustomerRequest struct {
 	Key            string    `json:"key"`

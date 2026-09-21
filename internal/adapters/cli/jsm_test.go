@@ -25,7 +25,7 @@ func TestJSMDesksSeedNoJiraSearch(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &page); err != nil {
 		t.Fatal(err, out.String())
 	}
-	if page.Site != domain.GardaHostname {
+	if page.Site != jsmHost(t) {
 		t.Fatalf("site %q", page.Site)
 	}
 	got := map[string]string{}
@@ -66,7 +66,7 @@ func TestJSMCommentPublicTrue(t *testing.T) {
 	if payload.Body != "customer note" || !payload.Public {
 		t.Fatalf("%+v", payload)
 	}
-	req, err := mem.GetRequest(context.Background(), domain.GardaHostname, "EOS-1")
+	req, err := mem.GetRequest(context.Background(), jsmHost(t), "EOS-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestJSMCreateNoRaiseOnBehalfOf(t *testing.T) {
 	if created.Key != "EOS-2" {
 		t.Fatalf("%+v", created)
 	}
-	if created.PortalURL != domain.PortalURL(domain.GardaHostname, "3", "EOS-2") {
+	if created.PortalURL != domain.PortalURL(jsmHost(t), "3", "EOS-2") {
 		t.Fatalf("portal %q", created.PortalURL)
 	}
 	payload := mem.LastCreatePayload()
@@ -111,7 +111,7 @@ func TestJSMSiteSesamiIOIsUsage(t *testing.T) {
 		t.Fatal(code, errw.String())
 	}
 	s := errw.String()
-	if !strings.Contains(s, "portal/1") && !strings.Contains(s, "atlas jira") {
+	if !strings.Contains(s, "jsm_customer") && !strings.Contains(s, "atlas jira") {
 		t.Fatal(s)
 	}
 	var e map[string]any
@@ -176,7 +176,7 @@ func TestAuthStatusGardaRoleNoTokens(t *testing.T) {
 		if m["role"] != "jsm_customer" {
 			t.Fatalf("%v", m)
 		}
-		if m["hostname"] != domain.GardaHostname {
+		if m["hostname"] != jsmHost(t) {
 			t.Fatalf("%v", m)
 		}
 		if _, ok := m["token"]; ok {

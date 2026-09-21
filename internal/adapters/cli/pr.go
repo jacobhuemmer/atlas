@@ -60,7 +60,7 @@ func prList(args []string, d Deps, format string) int {
 	}
 	fsset := flag.NewFlagSet("pr list", flag.ContinueOnError)
 	fsset.SetOutput(d.Stderr)
-	workspace := fsset.String("workspace", "", "Bitbucket workspace (default sesamiio)")
+	workspace := fsset.String("workspace", "", "Bitbucket workspace (config defaults.workspace)")
 	repo := fsset.String("repo", "", "repository slug")
 	if err := parseMixed(fsset, args); err != nil {
 		return fail(d, domain.Usage(err.Error()))
@@ -85,7 +85,7 @@ func prCreate(args []string, d Deps, format string) int {
 	}
 	fsset := flag.NewFlagSet("pr create", flag.ContinueOnError)
 	fsset.SetOutput(d.Stderr)
-	workspace := fsset.String("workspace", "", "Bitbucket workspace (default sesamiio)")
+	workspace := fsset.String("workspace", "", "Bitbucket workspace (config defaults.workspace)")
 	repo := fsset.String("repo", "", "repository slug")
 	title := fsset.String("title", "", "PR title")
 	source := fsset.String("source", "", "source branch")
@@ -249,7 +249,7 @@ type prDryRun struct {
 }
 
 func prCommonFlags(fsset *flag.FlagSet) (workspace, repo *string, id *int) {
-	workspace = fsset.String("workspace", "", "Bitbucket workspace (default sesamiio)")
+	workspace = fsset.String("workspace", "", "Bitbucket workspace (config defaults.workspace)")
 	repo = fsset.String("repo", "", "repository slug")
 	id = fsset.Int("id", 0, "pull request id")
 	return
@@ -258,7 +258,7 @@ func prCommonFlags(fsset *flag.FlagSet) (workspace, repo *string, id *int) {
 func requireRepo(workspace, repo string) (string, string, error) {
 	workspace = strings.TrimSpace(workspace)
 	if workspace == "" {
-		workspace = domain.DefaultWorkspace
+		workspace = domain.DefaultWorkspace()
 	}
 	repo = strings.TrimSpace(repo)
 	if repo == "" {

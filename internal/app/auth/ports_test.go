@@ -47,5 +47,5 @@ func TestStatusPerSiteUsable(t *testing.T) {
 	if err != nil || st.SignedIn {
 		t.Fatal(err, st)
 	}
-	_ = domain.Sites
+	_ = domain.Sites()
 }

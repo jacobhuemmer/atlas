@@ -1,8 +1,5 @@
 package domain
 
-// DefaultAssigneeAccountID is Mason Huemmer on Sesami licensed sites.
-const DefaultAssigneeAccountID = "712020:092d1246-2a54-4f40-8317-ef3dc777bf3c"
-
 // DefaultLinkType is the Jira issue-link type atlas jira link uses when --type is omitted.
 const DefaultLinkType = "Relates"
 
@@ -44,7 +41,7 @@ type SearchResult struct {
 }
 
 // CreateIssue is the REST field set we own for atlas jira create.
-// Markdown is the default description format. Assignee defaults to DefaultAssigneeAccountID.
+// Markdown is the default description format. Assignee uses catalog defaults when empty.
 type CreateIssue struct {
 	Project     string
 	IssueType   string

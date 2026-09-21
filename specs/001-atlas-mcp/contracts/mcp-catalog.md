@@ -11,8 +11,8 @@ Transport: stdio only. No SSE, no Streamable HTTP.
 | Name | Description (MUST convey) | Session |
 | --- | --- | --- |
 | `atlas_status` | Signed-in, session usable, per-site role. No tokens. Does not open a browser. | Optional |
-| `atlas_help` | CLI help for a namespace or verb, or a recipe `topic` (`jira-search`, `confluence-write`, `pr-review`, `jsm-garda`). No session required. | None |
-| `atlas_run` | Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless `write_opt_in` is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-garda. | Required for workloads |
+| `atlas_help` | CLI help for a namespace or verb, or a recipe `topic` (`jira-search`, `confluence-write`, `pr-review`, `jsm-customer`). No session required. | None |
+| `atlas_run` | Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless `write_opt_in` is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer. | Required for workloads |
 
 Unknown tool name → MCP protocol error. Do not add `atlas_login`, or per-verb tools.
 
@@ -32,13 +32,13 @@ Signed out → success, `signed_in` false, no interactive login.
 | --- | --- | --- |
 | `namespace` | string | no |
 | `verb` | string | no |
-| `topic` | string | no (`jira-search` \| `confluence-write` \| `pr-review` \| `jsm-garda`) |
+| `topic` | string | no (`jira-search` \| `confluence-write` \| `pr-review` \| `jsm-customer`) |
 
 No args → overview: three tools, four recipe topics, write opt-in. `topic` set → recipe text. `namespace` / `verb` → CLI help. `topic` and `namespace` together → usage. Unknown topic → usage. No session. Text, not JSON.
 
 ## Named recipes (MCP prompts)
 
-`prompts/list` MUST return exactly: `jira-search`, `confluence-write`, `pr-review`, `jsm-garda`. `prompts/get` returns the same body as `atlas_help` for that topic. MUST NOT add a fourth tool.
+`prompts/list` MUST return exactly: `jira-search`, `confluence-write`, `pr-review`, `jsm-customer`. `prompts/get` returns the same body as `atlas_help` for that topic. MUST NOT add a fourth tool.
 
 ## `atlas_run`
 
@@ -63,7 +63,7 @@ Write list: `jira create|edit|comment|transition|link`, `confluence create|updat
 | `atlas --help` | Lists `auth`, `site`, `jira`, `confluence`, `pr`, `jsm`, `mcp`. JSON, exit classes 3/4/5/6. |
 | `atlas mcp --help` / `atlas mcp serve --help` | Exit 0, no session. Names stdio, three tools, write opt-in default false, four recipe topics. |
 | `atlas mcp serve` | JSON-RPC on stdio until stdin closes. `--human` → usage (3). |
-| `atlas auth status` | Signed-out JSON with three sites, no tokens. |
+| `atlas auth status` | Signed-out JSON with catalog sites, no tokens. |
 
 ## Error mapping
 

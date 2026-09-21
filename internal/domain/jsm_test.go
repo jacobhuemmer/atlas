@@ -3,8 +3,12 @@ package domain
 import "testing"
 
 func TestPortalURL(t *testing.T) {
-	got := PortalURL(GardaHostname, "3", "EOS-1")
-	want := "https://gardaworld.atlassian.net/servicedesk/customer/portal/3/EOS-1"
+	host, err := Lookup("garda")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := PortalURL(host.Hostname, "3", "EOS-1")
+	want := "https://" + host.Hostname + "/servicedesk/customer/portal/3/EOS-1"
 	if got != want {
 		t.Fatalf("%q != %q", got, want)
 	}

@@ -254,7 +254,7 @@ func clonePR(pr domain.PullRequest) domain.PullRequest {
 func normalizePR(workspace, repo string) (string, string, error) {
 	workspace = strings.TrimSpace(workspace)
 	if workspace == "" {
-		workspace = domain.DefaultWorkspace
+		workspace = domain.DefaultWorkspace()
 	}
 	repo = strings.TrimSpace(repo)
 	if repo == "" {

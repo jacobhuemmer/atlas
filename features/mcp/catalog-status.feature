@@ -10,4 +10,4 @@ Feature: MCP catalog and status
   Scenario: prompts
     Given an MCP server
     When the client lists MCP prompts
-    Then the prompts are jira-search, confluence-write, pr-review, jsm-garda
+    Then the prompts are jira-search, confluence-write, pr-review, jsm-customer

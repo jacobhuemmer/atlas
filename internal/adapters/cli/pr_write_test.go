@@ -29,7 +29,7 @@ func TestPRCreateMinimumTitleSource(t *testing.T) {
 	if created.Target != domain.DefaultTargetBranch {
 		t.Fatalf("target %q", created.Target)
 	}
-	if created.Workspace != domain.DefaultWorkspace || created.State != "OPEN" {
+	if created.Workspace != domain.DefaultWorkspace() || created.State != "OPEN" {
 		t.Fatalf("%+v", created)
 	}
 	out.Reset()
@@ -92,7 +92,7 @@ func TestMCPPRMergeWriteGate(t *testing.T) {
 	if preview["namespace"] != "pr" || preview["verb"] != "merge" {
 		t.Fatal(toolText(t, res))
 	}
-	got, err := mem.GetPR(context.Background(), domain.DefaultWorkspace, "atlas", 1)
+	got, err := mem.GetPR(context.Background(), domain.DefaultWorkspace(), "atlas", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestMCPPRMergeWriteGate(t *testing.T) {
 	if merged.State != "MERGED" {
 		t.Fatalf("%+v", merged)
 	}
-	got, err = mem.GetPR(context.Background(), domain.DefaultWorkspace, "atlas", 1)
+	got, err = mem.GetPR(context.Background(), domain.DefaultWorkspace(), "atlas", 1)
 	if err != nil {
 		t.Fatal(err)
 	}

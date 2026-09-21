@@ -13,7 +13,7 @@ import (
 )
 
 // Memory is the fake REST seed. Issues are keyed by hostname+key; pages by hostname+id;
-// PRs by workspace+repo+id; Garda customer requests by hostname+key.
+// PRs by workspace+repo+id; customer requests by hostname+key.
 type Memory struct {
 	mu             sync.Mutex
 	issues         map[string]domain.Issue
@@ -146,7 +146,7 @@ func (m *Memory) Create(_ context.Context, hostname string, in domain.CreateIssu
 	}
 	assignee := strings.TrimSpace(in.Assignee)
 	if assignee == "" {
-		assignee = domain.DefaultAssigneeAccountID
+		assignee = domain.DefaultAssigneeAccountID()
 	}
 	preview := domain.Issue{
 		Site:        hostname,
@@ -156,7 +156,7 @@ func (m *Memory) Create(_ context.Context, hostname string, in domain.CreateIssu
 		IssueType:   issuetype,
 		Labels:      append([]string(nil), in.Labels...),
 		Assignee:    assignee,
-		Reporter:    domain.DefaultAssigneeAccountID,
+		Reporter:    domain.DefaultAssigneeAccountID(),
 		Project:     project,
 	}
 	if dryRun {
@@ -438,31 +438,15 @@ func statusForTransition(name string) string {
 	}
 }
 
-func defaultTransitions(project, issuetype string) []string {
-	switch strings.ToUpper(project) {
-	case "SDP":
-		if strings.EqualFold(issuetype, "Incident") {
-			return []string{"Resolve"}
-		}
-		return []string{"Mark as done"}
-	default:
-		return []string{"Done"}
-	}
+func defaultTransitions(_, _ string) []string {
+	return []string{"Done"}
 }
 
-func transitionHint(project, issuetype string, names []string) string {
+func transitionHint(_, _ string, names []string) string {
 	if len(names) > 0 {
 		return "available: " + strings.Join(names, ", ")
 	}
-	switch strings.ToUpper(project) {
-	case "SDP":
-		if strings.EqualFold(issuetype, "Incident") {
-			return "SDP Incident uses Resolve"
-		}
-		return "SDP Task uses Mark as done"
-	default:
-		return "SDO/SES use Done"
-	}
+	return "pass a transition name from the issue"
 }
 
 func cloneIssue(iss domain.Issue) domain.Issue {

@@ -38,7 +38,7 @@ func jsmDesks(args []string, d Deps, format string) int {
 	}
 	fsset := flag.NewFlagSet("jsm desks", flag.ContinueOnError)
 	fsset.SetOutput(d.Stderr)
-	siteFlag := fsset.String("site", "", "site alias (default garda)")
+	siteFlag := fsset.String("site", "", "site alias (defaults.jsm_site when set)")
 	if err := parseMixed(fsset, args); err != nil {
 		return fail(d, domain.Usage(err.Error()))
 	}
@@ -62,7 +62,7 @@ func jsmTypes(args []string, d Deps, format string) int {
 	}
 	fsset := flag.NewFlagSet("jsm types", flag.ContinueOnError)
 	fsset.SetOutput(d.Stderr)
-	siteFlag := fsset.String("site", "", "site alias (default garda)")
+	siteFlag := fsset.String("site", "", "site alias (defaults.jsm_site when set)")
 	desk := fsset.String("desk", "", "serviceDeskId")
 	if err := parseMixed(fsset, args); err != nil {
 		return fail(d, domain.Usage(err.Error()))
@@ -94,7 +94,7 @@ func jsmList(args []string, d Deps, format string) int {
 	}
 	fsset := flag.NewFlagSet("jsm list", flag.ContinueOnError)
 	fsset.SetOutput(d.Stderr)
-	siteFlag := fsset.String("site", "", "site alias (default garda)")
+	siteFlag := fsset.String("site", "", "site alias (defaults.jsm_site when set)")
 	status := fsset.String("status", "", "open, closed, or all (default all)")
 	if err := parseMixed(fsset, args); err != nil {
 		return fail(d, domain.Usage(err.Error()))
@@ -123,13 +123,13 @@ func jsmGet(args []string, d Deps, format string) int {
 	}
 	fsset := flag.NewFlagSet("jsm get", flag.ContinueOnError)
 	fsset.SetOutput(d.Stderr)
-	siteFlag := fsset.String("site", "", "site alias (default garda)")
+	siteFlag := fsset.String("site", "", "site alias (defaults.jsm_site when set)")
 	if err := parseMixed(fsset, args); err != nil {
 		return fail(d, domain.Usage(err.Error()))
 	}
 	key := fsset.Arg(0)
 	if strings.TrimSpace(key) == "" {
-		return fail(d, domain.Usage("request key is required").WithHint("atlas jsm get EOS-1"))
+		return fail(d, domain.Usage("request key is required").WithHint("atlas jsm get KEY-1"))
 	}
 	site, err := resolveJSMSite(*siteFlag)
 	if err != nil {
@@ -151,7 +151,7 @@ func jsmCreate(args []string, d Deps, format string) int {
 	}
 	fsset := flag.NewFlagSet("jsm create", flag.ContinueOnError)
 	fsset.SetOutput(d.Stderr)
-	siteFlag := fsset.String("site", "", "site alias (default garda)")
+	siteFlag := fsset.String("site", "", "site alias (defaults.jsm_site when set)")
 	desk := fsset.String("desk", "", "serviceDeskId")
 	typ := fsset.String("type", "", "requestTypeId")
 	summary := fsset.String("summary", "", "summary")
@@ -199,7 +199,7 @@ func jsmComment(args []string, d Deps, format string) int {
 	}
 	fsset := flag.NewFlagSet("jsm comment", flag.ContinueOnError)
 	fsset.SetOutput(d.Stderr)
-	siteFlag := fsset.String("site", "", "site alias (default garda)")
+	siteFlag := fsset.String("site", "", "site alias (defaults.jsm_site when set)")
 	body := fsset.String("body", "", "public comment body")
 	dry := fsset.Bool("dry-run", false, "")
 	if err := parseMixed(fsset, args); err != nil {
@@ -207,10 +207,10 @@ func jsmComment(args []string, d Deps, format string) int {
 	}
 	key := fsset.Arg(0)
 	if strings.TrimSpace(key) == "" {
-		return fail(d, domain.Usage("request key is required").WithHint("atlas jsm comment EOS-1 --body '…'"))
+		return fail(d, domain.Usage("request key is required").WithHint("atlas jsm comment KEY-1 --body '…'"))
 	}
 	if strings.TrimSpace(*body) == "" {
-		return fail(d, domain.Usage("comment requires --body").WithHint("atlas jsm comment EOS-1 --body '…'"))
+		return fail(d, domain.Usage("comment requires --body").WithHint("atlas jsm comment KEY-1 --body '…'"))
 	}
 	site, err := resolveJSMSite(*siteFlag)
 	if err != nil {
@@ -245,7 +245,7 @@ func jsmTransition(args []string, d Deps, format string) int {
 	}
 	fsset := flag.NewFlagSet("jsm transition", flag.ContinueOnError)
 	fsset.SetOutput(d.Stderr)
-	siteFlag := fsset.String("site", "", "site alias (default garda)")
+	siteFlag := fsset.String("site", "", "site alias (defaults.jsm_site when set)")
 	id := fsset.String("id", "", "transition id")
 	dry := fsset.Bool("dry-run", false, "")
 	if err := parseMixed(fsset, args); err != nil {
@@ -253,10 +253,10 @@ func jsmTransition(args []string, d Deps, format string) int {
 	}
 	key := fsset.Arg(0)
 	if strings.TrimSpace(key) == "" {
-		return fail(d, domain.Usage("request key is required").WithHint("atlas jsm transition EOS-1 --id 21"))
+		return fail(d, domain.Usage("request key is required").WithHint("atlas jsm transition KEY-1 --id 21"))
 	}
 	if strings.TrimSpace(*id) == "" {
-		return fail(d, domain.Usage("transition requires --id").WithHint("atlas jsm transition EOS-1 --id 21"))
+		return fail(d, domain.Usage("transition requires --id").WithHint("atlas jsm transition KEY-1 --id 21"))
 	}
 	site, err := resolveJSMSite(*siteFlag)
 	if err != nil {
@@ -297,14 +297,10 @@ type jsmDryRun struct {
 func resolveJSMSite(flag string) (domain.Site, error) {
 	flag = strings.TrimSpace(flag)
 	if flag == "" {
-		flag = domain.DefaultJSMSite
+		flag = domain.DefaultJSMSite()
+		if flag == "" {
+			return domain.Site{}, domain.Usage("jsm requires --site").WithHint("set defaults.jsm_site or pass --site ALIAS")
+		}
 	}
-	site, err := domain.Lookup(flag)
-	if err != nil {
-		return domain.Site{}, err
-	}
-	if site.Alias != domain.DefaultJSMSite {
-		return domain.Site{}, domain.Usage("jsm is Garda customer REST only").WithHint("sesami-io portal/1 is deferred; SDP stays atlas jira")
-	}
-	return site, nil
+	return domain.LookupJSM(flag)
 }

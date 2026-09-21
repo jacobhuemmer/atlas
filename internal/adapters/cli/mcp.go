@@ -15,7 +15,7 @@ const mcpHelp = `atlas mcp — stdio MCP for agents
 
 Verbs: serve
 serve: JSON-RPC on stdin/stdout. Tools: atlas_status, atlas_help, atlas_run.
-Recipe topics: jira-search, confluence-write, pr-review, jsm-garda (also MCP prompts).
+Recipe topics: jira-search, confluence-write, pr-review, jsm-customer (also MCP prompts).
 Writes through atlas_run dry-run unless write_opt_in is true.
 Do not use --human. Login stays atlas auth login in a terminal.
 No session required for --help.
@@ -24,7 +24,7 @@ No session required for --help.
 type helpIn struct {
 	Namespace string `json:"namespace,omitempty" jsonschema:"optional CLI namespace"`
 	Verb      string `json:"verb,omitempty" jsonschema:"optional verb"`
-	Topic     string `json:"topic,omitempty" jsonschema:"recipe topic: jira-search, confluence-write, pr-review, or jsm-garda"`
+	Topic     string `json:"topic,omitempty" jsonschema:"recipe topic: jira-search, confluence-write, pr-review, or jsm-customer"`
 }
 
 type runIn struct {
@@ -65,11 +65,11 @@ func NewMCPServer(d Deps) *mcp.Server {
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "atlas_help",
-		Description: "CLI help for a namespace or verb, or recipe topic jira-search, confluence-write, pr-review, jsm-garda. No session required.",
+		Description: "CLI help for a namespace or verb, or recipe topic jira-search, confluence-write, pr-review, jsm-customer. No session required.",
 	}, handleHelp)
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "atlas_run",
-		Description: "Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless write_opt_in is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-garda.",
+		Description: "Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless write_opt_in is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in runIn) (*mcp.CallToolResult, any, error) {
 		args, err := buildRunArgs(in.Namespace, in.Verb, in.Args, in.Flags, in.WriteOptIn)
 		if err != nil {

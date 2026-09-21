@@ -2,10 +2,8 @@ package cli
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
-	"github.com/masonhuemmer/atlas/internal/adapters/atlassian"
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
@@ -25,7 +23,7 @@ func TestJiraCreatePersistsAndGetFindsKey(t *testing.T) {
 	if created.Site != "sesamidevel.atlassian.net" {
 		t.Fatalf("site %q", created.Site)
 	}
-	if created.Assignee != domain.DefaultAssigneeAccountID {
+	if created.Assignee != domain.DefaultAssigneeAccountID() {
 		t.Fatalf("assignee %q", created.Assignee)
 	}
 	out.Reset()
@@ -137,20 +135,18 @@ func TestJiraTransitionUnknownNameIsUsage(t *testing.T) {
 	}
 }
 
-func TestJiraCreateSDPStoryIsUsage(t *testing.T) {
-	d, _, errw := testDeps()
-	mem := d.Jira.(atlassian.JiraAPI).Memory
-	before := mem.IssueCount()
-	code := Run([]string{"atlas", "jira", "create", "--project", "SDP", "--type", "Story", "--summary", "nope"}, d)
-	if code != domain.ExitUsage {
+func TestJiraCreateSDPStoryPersists(t *testing.T) {
+	d, out, errw := testDeps()
+	code := Run([]string{"atlas", "jira", "create", "--project", "SDP", "--type", "Story", "--summary", "allowed"}, d)
+	if code != domain.ExitOK {
 		t.Fatal(code, errw.String())
 	}
-	if mem.IssueCount() != before {
-		t.Fatal("seed mutated")
+	var created domain.Issue
+	if err := json.Unmarshal(out.Bytes(), &created); err != nil {
+		t.Fatal(err, out.String())
 	}
-	s := errw.String()
-	if !strings.Contains(s, "Story") {
-		t.Fatal(s)
+	if created.IssueType != "Story" || created.Project != "SDP" {
+		t.Fatalf("%+v", created)
 	}
 }
 

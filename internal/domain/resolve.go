@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-// ResolveInput is enough context to pick exactly one of the three clouds.
+// ResolveInput is enough context to pick exactly one catalog site.
 // Site may be an alias, hostname, or UUID. --site is required only when
 // nothing else can infer (raw JQL with no project, CQL with no space, numeric id only).
 type ResolveInput struct {
 	Site    string // alias, hostname, or UUID
 	Project string
-	Issue   string // SDO-1, CAB-12
-	Space   string // CCAB
+	Issue   string
+	Space   string
 	JQL     string
 	CQL     string
 }
@@ -28,6 +28,9 @@ var (
 
 // Resolve returns exactly one Site. Inference never crosses clouds.
 func Resolve(in ResolveInput) (Site, error) {
+	if len(Sites()) == 0 {
+		return Site{}, Usage("no sites configured").WithHint("write $XDG_CONFIG_HOME/atlas/config.toml or set ATLAS_CONFIG")
+	}
 	var aliases []string
 
 	if s := strings.TrimSpace(in.Site); s != "" {
@@ -76,15 +79,18 @@ func Resolve(in ResolveInput) (Site, error) {
 
 	switch len(aliases) {
 	case 0:
-		return Site{}, Usage("cannot infer site").WithHint("pass --site sesamidevel, sesami-io, or garda")
+		if def := DefaultSiteAlias(); def != "" {
+			return Lookup(def)
+		}
+		return Site{}, Usage("cannot infer site").WithHint("pass --site ALIAS from atlas site list")
 	case 1:
 		return Lookup(aliases[0])
 	default:
-		return Site{}, Usage("JQL names projects from two sites").WithHint("do not dual-query sesamidevel and sesami-io; split the query or pass one --site")
+		return Site{}, Usage("query names projects or spaces from two sites").WithHint("do not dual-query clouds; split the query or pass one --site")
 	}
 }
 
-// ProjectFromIssue returns the project key from SDO-1. Numeric ids do not infer.
+// ProjectFromIssue returns the project key from KEY-1. Numeric ids do not infer.
 func ProjectFromIssue(key string) (string, bool) {
 	m := reIssueKey.FindStringSubmatch(strings.TrimSpace(key))
 	if m == nil {
@@ -137,24 +143,6 @@ func CQLSpaces(cql string) []string {
 		}
 	}
 	return out
-}
-
-func aliasForProject(p string) (string, bool) {
-	switch strings.ToUpper(strings.TrimSpace(p)) {
-	case "SDO", "SDP", "SES":
-		return "sesamidevel", true
-	case "CAB":
-		return "sesami-io", true
-	default:
-		return "", false
-	}
-}
-
-func aliasForSpace(sp string) (string, bool) {
-	if strings.EqualFold(strings.TrimSpace(sp), "CCAB") {
-		return "sesami-io", true
-	}
-	return "", false
 }
 
 func addAlias(aliases []string, alias string) []string {

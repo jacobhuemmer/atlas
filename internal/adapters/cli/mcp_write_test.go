@@ -144,7 +144,7 @@ func TestMCPJSMCommentWriteGate(t *testing.T) {
 	if preview["dry_run"] != true {
 		t.Fatal(toolText(t, res))
 	}
-	got, err := mem.GetRequest(context.Background(), domain.GardaHostname, "EOS-1")
+	got, err := mem.GetRequest(context.Background(), jsmHost(t), "EOS-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestMCPJSMCommentWriteGate(t *testing.T) {
 	if err != nil || res.IsError {
 		t.Fatal(err, toolText(t, res))
 	}
-	got, err = mem.GetRequest(context.Background(), domain.GardaHostname, "EOS-1")
+	got, err = mem.GetRequest(context.Background(), jsmHost(t), "EOS-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestMCPJSMTransitionWriteGate(t *testing.T) {
 	if preview["dry_run"] != true {
 		t.Fatal(toolText(t, res))
 	}
-	got, err := mem.GetRequest(context.Background(), domain.GardaHostname, "EOS-1")
+	got, err := mem.GetRequest(context.Background(), jsmHost(t), "EOS-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestMCPJSMTransitionWriteGate(t *testing.T) {
 	if err != nil || res.IsError {
 		t.Fatal(err, toolText(t, res))
 	}
-	got, err = mem.GetRequest(context.Background(), domain.GardaHostname, "EOS-1")
+	got, err = mem.GetRequest(context.Background(), jsmHost(t), "EOS-1")
 	if err != nil {
 		t.Fatal(err)
 	}

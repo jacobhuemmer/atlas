@@ -7,7 +7,7 @@ import (
 )
 
 // Store is Bitbucket Cloud REST 2.0 on one workspace. Fake memory and live REST both implement it.
-// Workspace default is sesamiio. SSH and git stay out.
+// Workspace default comes from catalog defaults.workspace. SSH and git stay out.
 type Store interface {
 	Get(ctx context.Context, workspace, repo string, id int) (domain.PullRequest, error)
 	List(ctx context.Context, workspace, repo string) (domain.PullRequestList, error)

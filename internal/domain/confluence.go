@@ -26,7 +26,7 @@ type PageSearchResult struct {
 }
 
 // CreatePage is the REST field set we own for atlas confluence create.
-// Body format is markdown. Space accepts a space key (CCAB) or numeric id.
+// Body format is markdown. Space accepts a space key or numeric id.
 type CreatePage struct {
 	Space string
 	Title string

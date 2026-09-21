@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
-// JSMAPI is the in-process Garda customer adapter used by ATLAS_FAKE and tests.
+// JSMAPI is the in-process JSM customer adapter used by ATLAS_FAKE and tests.
 type JSMAPI struct {
 	Memory *Memory
 }
@@ -67,7 +68,7 @@ func (m *Memory) ListDesks(_ context.Context, hostname string) (domain.DeskList,
 	if m == nil {
 		return domain.DeskList{}, domain.Service("jsm memory not configured")
 	}
-	hostname, err := requireGardaHost(hostname)
+	hostname, err := requireJSMHost(hostname)
 	if err != nil {
 		return domain.DeskList{}, err
 	}
@@ -82,7 +83,7 @@ func (m *Memory) ListTypes(_ context.Context, hostname, deskID string) (domain.R
 	if m == nil {
 		return domain.RequestTypeList{}, domain.Service("jsm memory not configured")
 	}
-	if _, err := requireGardaHost(hostname); err != nil {
+	if _, err := requireJSMHost(hostname); err != nil {
 		return domain.RequestTypeList{}, err
 	}
 	deskID = strings.TrimSpace(deskID)
@@ -102,7 +103,7 @@ func (m *Memory) ListRequests(_ context.Context, hostname, status string) (domai
 	if m == nil {
 		return domain.RequestList{}, domain.Service("jsm memory not configured")
 	}
-	hostname, err := requireGardaHost(hostname)
+	hostname, err := requireJSMHost(hostname)
 	if err != nil {
 		return domain.RequestList{}, err
 	}
@@ -133,13 +134,13 @@ func (m *Memory) GetRequest(_ context.Context, hostname, key string) (domain.Cus
 	if m == nil {
 		return domain.CustomerRequest{}, domain.Service("jsm memory not configured")
 	}
-	hostname, err := requireGardaHost(hostname)
+	hostname, err := requireJSMHost(hostname)
 	if err != nil {
 		return domain.CustomerRequest{}, err
 	}
 	key = strings.ToUpper(strings.TrimSpace(key))
 	if key == "" {
-		return domain.CustomerRequest{}, domain.Usage("request key is required").WithHint("atlas jsm get EOS-1")
+		return domain.CustomerRequest{}, domain.Usage("request key is required").WithHint("atlas jsm get KEY-1")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -154,7 +155,7 @@ func (m *Memory) CreateRequest(_ context.Context, hostname string, in domain.Cre
 	if m == nil {
 		return domain.CustomerRequest{}, domain.Service("jsm memory not configured")
 	}
-	hostname, err := requireGardaHost(hostname)
+	hostname, err := requireJSMHost(hostname)
 	if err != nil {
 		return domain.CustomerRequest{}, err
 	}
@@ -215,17 +216,17 @@ func (m *Memory) CommentRequest(_ context.Context, hostname, key, body string, d
 	if m == nil {
 		return domain.Service("jsm memory not configured")
 	}
-	hostname, err := requireGardaHost(hostname)
+	hostname, err := requireJSMHost(hostname)
 	if err != nil {
 		return err
 	}
 	key = strings.ToUpper(strings.TrimSpace(key))
 	body = strings.TrimSpace(body)
 	if key == "" {
-		return domain.Usage("request key is required").WithHint("atlas jsm comment EOS-1 --body '…'")
+		return domain.Usage("request key is required").WithHint("atlas jsm comment KEY-1 --body '…'")
 	}
 	if body == "" {
-		return domain.Usage("comment requires --body").WithHint("atlas jsm comment EOS-1 --body '…'")
+		return domain.Usage("comment requires --body").WithHint("atlas jsm comment KEY-1 --body '…'")
 	}
 	comment := domain.Comment{Body: body, Public: true}
 	m.mu.Lock()
@@ -247,17 +248,17 @@ func (m *Memory) TransitionRequest(_ context.Context, hostname, key, id string, 
 	if m == nil {
 		return domain.CustomerRequest{}, domain.Service("jsm memory not configured")
 	}
-	hostname, err := requireGardaHost(hostname)
+	hostname, err := requireJSMHost(hostname)
 	if err != nil {
 		return domain.CustomerRequest{}, err
 	}
 	key = strings.ToUpper(strings.TrimSpace(key))
 	id = strings.TrimSpace(id)
 	if key == "" {
-		return domain.CustomerRequest{}, domain.Usage("request key is required").WithHint("atlas jsm transition EOS-1 --id 21")
+		return domain.CustomerRequest{}, domain.Usage("request key is required").WithHint("atlas jsm transition KEY-1 --id 21")
 	}
 	if id == "" {
-		return domain.CustomerRequest{}, domain.Usage("transition requires --id").WithHint("atlas jsm transition EOS-1 --id 21")
+		return domain.CustomerRequest{}, domain.Usage("transition requires --id").WithHint("atlas jsm transition KEY-1 --id 21")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -368,26 +369,33 @@ func cloneRequest(req domain.CustomerRequest) domain.CustomerRequest {
 	return out
 }
 
-func requireGardaHost(hostname string) (string, error) {
+func requireJSMHost(hostname string) (string, error) {
 	hostname = strings.TrimSpace(hostname)
 	if hostname == "" {
-		hostname = domain.GardaHostname
+		alias := domain.DefaultJSMSite()
+		if alias == "" {
+			return "", domain.Usage("jsm requires --site").WithHint("set defaults.jsm_site or pass --site ALIAS")
+		}
+		site, err := domain.Lookup(alias)
+		if err != nil {
+			return "", err
+		}
+		hostname = site.Hostname
 	}
-	if !strings.EqualFold(hostname, domain.GardaHostname) {
-		return "", domain.Usage("jsm is Garda customer REST only").WithHint("sesami-io portal/1 is deferred; SDP stays atlas jira")
+	site, err := domain.Lookup(hostname)
+	if err != nil {
+		return "", err
 	}
-	return domain.GardaHostname, nil
+	if site.Role != domain.RoleJSMCustomer {
+		return "", domain.Usage("jsm is customer REST only").WithHint("use a site with role jsm_customer; licensed Jira stays atlas jira")
+	}
+	return site.Hostname, nil
 }
 
 func deskOrder(id string) int {
-	switch id {
-	case "3":
-		return 0
-	case "12":
-		return 1
-	case "2586":
-		return 2
-	default:
-		return 100
+	n, err := strconv.Atoi(id)
+	if err != nil {
+		return 1 << 30
 	}
+	return n
 }

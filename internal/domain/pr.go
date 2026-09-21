@@ -2,14 +2,12 @@ package domain
 
 import "strconv"
 
-// DefaultWorkspace is the Bitbucket Cloud workspace for Sesami PRs.
-const DefaultWorkspace = "sesamiio"
-
 // DefaultTargetBranch is used when atlas pr create omits --target.
 const DefaultTargetBranch = "main"
 
 // PullRequest is one Bitbucket Cloud pull request.
-// Workspace defaults to sesamiio. State is OPEN, MERGED, or DECLINED.
+// Workspace comes from catalog defaults when --workspace is omitted.
+// State is OPEN, MERGED, or DECLINED.
 type PullRequest struct {
 	ID          int      `json:"id"`
 	Workspace   string   `json:"workspace"`

@@ -48,10 +48,10 @@ func TestMCPHelpTopics(t *testing.T) {
 	d, _, _ := testDeps()
 	cs := connectMCP(t, d)
 	cases := map[string][]string{
-		"jira-search":      {"jira get SDO-1", "Never dual-query", "atlas jsm"},
-		"confluence-write": {"CCAB", "sesami-io", "write_opt_in"},
-		"pr-review":        {"sesamiio", "pr merge", "No PR delete"},
-		"jsm-garda":        {"gardaworld", "public: true", "jsm desks"},
+		"jira-search":      {"jira get KEY-1", "Never dual-query", "atlas jsm"},
+		"confluence-write": {"space = KEY", "write_opt_in"},
+		"pr-review":        {"defaults.workspace", "pr merge", "No PR delete"},
+		"jsm-customer":     {"jsm_customer", "public: true", "jsm desks"},
 	}
 	for topic, wants := range cases {
 		res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{

@@ -6,7 +6,7 @@ import (
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
-// Store is Garda JSM customer REST on gardaworld.atlassian.net.
+// Store is JSM customer REST on a jsm_customer site.
 // Fake memory and live REST both implement it. Never Jira search.
 // Comments are public: true only. Customers cannot raiseOnBehalfOf.
 type Store interface {

@@ -109,6 +109,14 @@ func peelGlobals(args []string) (human, jsonOn, verbose bool, rest []string) {
 	return
 }
 
+// Fail writes a {class,message,hint} JSON object to stderr. Used by main when config.Load fails.
+func Fail(d Deps, err error) int {
+	if d.Stderr == nil {
+		d.Stderr = os.Stderr
+	}
+	return fail(d, err)
+}
+
 func fail(d Deps, err error) int {
 	code := domain.ExitOf(err)
 	cls := domain.ClassOf(err)

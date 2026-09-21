@@ -7,9 +7,8 @@ import (
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
-// JSM is the live customer REST client
-// (https://gardaworld.atlassian.net/rest/servicedeskapi).
-// Credentials are the Garda keyring slot. Headers:
+// JSM is the live customer REST client (https://<hostname>/rest/servicedeskapi).
+// Credentials are the jsm_customer keyring slot. Headers:
 //
 //	Authorization: Basic
 //	X-Atlassian-Token: no-check

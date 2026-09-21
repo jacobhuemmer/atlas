@@ -3,8 +3,8 @@ package domain
 import "testing"
 
 func TestLookupSites(t *testing.T) {
-	if len(Sites) != 3 {
-		t.Fatalf("count %d", len(Sites))
+	if len(Sites()) != 3 {
+		t.Fatalf("count %d", len(Sites()))
 	}
 	s, err := Lookup("sesamidevel")
 	if err != nil || s.Hostname != "sesamidevel.atlassian.net" || s.Role != "licensed" {
@@ -35,5 +35,14 @@ func TestSignedOutHasThreeUnusableSites(t *testing.T) {
 		if st.Usable {
 			t.Fatal(st)
 		}
+	}
+}
+
+func TestEmptyCatalogLookupIsUsage(t *testing.T) {
+	prev := CurrentCatalog()
+	t.Cleanup(func() { SetCatalog(prev) })
+	SetCatalog(Catalog{})
+	if _, err := Lookup("dev"); ExitOf(err) != ExitUsage {
+		t.Fatal(err)
 	}
 }

@@ -14,8 +14,9 @@ type Session struct {
 }
 
 func SignedOut() Session {
-	sites := make([]SiteStatus, len(Sites))
-	for i, s := range Sites {
+	table := Sites()
+	sites := make([]SiteStatus, len(table))
+	for i, s := range table {
 		sites[i] = SiteStatus{Alias: s.Alias, Hostname: s.Hostname, Role: s.Role, Usable: false}
 	}
 	return Session{Sites: sites}
