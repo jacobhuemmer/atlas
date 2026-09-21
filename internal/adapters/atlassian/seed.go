@@ -9,6 +9,7 @@ import (
 const (
 	hostDevel = "sesamidevel.atlassian.net"
 	hostIO    = "sesami-io.atlassian.net"
+	hostGarda = domain.GardaHostname
 )
 
 const seedCCABPageID = "100"
@@ -21,18 +22,22 @@ const seedPRDiff = `diff --git a/README.md b/README.md
 +phase 6
 `
 
-// Seed returns in-memory issues, pages, and PRs for ATLAS_FAKE and tests.
+// Seed returns in-memory issues, pages, PRs, and Garda JSM desks for ATLAS_FAKE and tests.
 func Seed() *Memory {
 	m := &Memory{
-		issues:      map[string]domain.Issue{},
-		transitions: map[string][]string{},
-		next:        map[string]int{},
-		pages:       map[string]domain.Page{},
-		spaces:      map[string]string{"CCAB": "ccab-space-id"},
-		nextPage:    101,
-		prs:         map[string]domain.PullRequest{},
-		prDiffs:     map[string]string{},
-		nextPR:      map[string]int{},
+		issues:         map[string]domain.Issue{},
+		transitions:    map[string][]string{},
+		next:           map[string]int{},
+		pages:          map[string]domain.Page{},
+		spaces:         map[string]string{"CCAB": "ccab-space-id"},
+		nextPage:       101,
+		prs:            map[string]domain.PullRequest{},
+		prDiffs:        map[string]string{},
+		nextPR:         map[string]int{},
+		types:          map[string][]domain.RequestType{},
+		requests:       map[string]domain.CustomerRequest{},
+		jsmTransitions: map[string][]string{},
+		nextReq:        map[string]int{},
 	}
 	for _, iss := range []domain.Issue{
 		{
@@ -102,6 +107,30 @@ func Seed() *Memory {
 	m.putPR(pr)
 	m.prDiffs[prKey(pr.Workspace, pr.Repo, pr.ID)] = seedPRDiff
 	m.nextPR[prRepoKey(pr.Workspace, pr.Repo)] = 2
+	m.desks = []domain.ServiceDesk{
+		{ID: "3", Key: "EOS", Name: "Engineering Operational Service"},
+		{ID: "12", Key: "ITSEC", Name: "IT Security"},
+		{ID: "2586", Key: "COSC", Name: "CloudOps Service Center"},
+	}
+	m.types["3"] = []domain.RequestType{{ID: "40", Name: "Incident", DeskID: "3"}}
+	m.types["12"] = []domain.RequestType{{ID: "50", Name: "Access request", DeskID: "12"}}
+	m.types["2586"] = []domain.RequestType{{ID: "60", Name: "Change", DeskID: "2586"}}
+	req := domain.CustomerRequest{
+		Key:            "EOS-1",
+		Site:           hostGarda,
+		DeskID:         "3",
+		TypeID:         "40",
+		Summary:        "Seed Garda request",
+		Description:    "Customer REST only; never Jira search",
+		Status:         "Waiting for support",
+		StatusCategory: domain.JSMCategoryOpen,
+		PortalURL:      domain.PortalURL(hostGarda, "3", "EOS-1"),
+	}
+	m.putRequest(req)
+	m.jsmTransitions[memKey(hostGarda, "EOS-1")] = []string{"21"}
+	m.nextReq["EOS"] = 2
+	m.nextReq["ITSEC"] = 1
+	m.nextReq["COSC"] = 1
 	return m
 }
 

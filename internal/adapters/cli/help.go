@@ -10,6 +10,7 @@ Namespaces:
   jira         get, search, create, edit, comment, transition, link on one site
   confluence   get, search, create, update (no delete). CCAB on sesami-io
   pr           get, list, create, comment, merge, diff (no delete). workspace sesamiio
+  jsm          Garda customer REST: desks, types, list, get, create, comment, transition
   mcp          stdio MCP for agents (serve)
 
 Output: JSON on stdout by default. --human for text. Diagnostics on stderr.
@@ -97,5 +98,26 @@ There is no delete verb. SSH and git stay out of pr.
 Reviewer updates are REST fields on create, not a missing Rovo action.
 MCP writes dry-run unless write_opt_in is true.
 Live base: https://api.bitbucket.org/2.0/repositories/{workspace}/{repo}/pullrequests
+Output: JSON (default) or --human.
+`
+
+const jsmHelp = `atlas jsm — Garda JSM customer REST (gardaworld.atlassian.net)
+
+Verbs: desks, types, list, get, create, comment, transition
+desks:      atlas jsm desks [--site garda]
+types:      atlas jsm types --desk 3
+list:       atlas jsm list [--status open|closed|all]
+get:        atlas jsm get EOS-1
+create:     atlas jsm create --desk 3 --type <id> --summary '...'
+comment:    atlas jsm comment EOS-1 --body '...'
+transition: atlas jsm transition EOS-1 --id <transition>
+
+--site garda is the only JSM site in v1. Missing --site infers garda.
+jsm against sesamidevel or sesami-io is usage (portal/1 deferred; SDP stays atlas jira).
+Never Jira search on gardaworld. Comments are public: true only. No raiseOnBehalfOf.
+Credentials are the Garda keyring slot, not the licensed Jira token.
+Portal URL: https://gardaworld.atlassian.net/servicedesk/customer/portal/{desk}/{KEY}
+MCP writes dry-run unless write_opt_in is true.
+Live base: https://gardaworld.atlassian.net/rest/servicedeskapi
 Output: JSON (default) or --human.
 `

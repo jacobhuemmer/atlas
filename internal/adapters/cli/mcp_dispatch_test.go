@@ -28,6 +28,9 @@ func TestWriteGateInjectsDryRun(t *testing.T) {
 		{"pr", "create"},
 		{"pr", "comment"},
 		{"pr", "merge"},
+		{"jsm", "create"},
+		{"jsm", "comment"},
+		{"jsm", "transition"},
 	}
 	for _, w := range writes {
 		if !isWrite(w[0], w[1]) {
@@ -56,7 +59,7 @@ func TestWriteGateInjectsDryRun(t *testing.T) {
 			}
 		}
 	}
-	if isWrite("jira", "get") || isWrite("jira", "search") || isWrite("confluence", "get") || isWrite("confluence", "search") || isWrite("confluence", "delete") || isWrite("pr", "get") || isWrite("pr", "list") || isWrite("pr", "diff") || isWrite("pr", "delete") {
+	if isWrite("jira", "get") || isWrite("jira", "search") || isWrite("confluence", "get") || isWrite("confluence", "search") || isWrite("confluence", "delete") || isWrite("pr", "get") || isWrite("pr", "list") || isWrite("pr", "diff") || isWrite("pr", "delete") || isWrite("jsm", "desks") || isWrite("jsm", "types") || isWrite("jsm", "list") || isWrite("jsm", "get") {
 		t.Fatal("reads and delete are not writes")
 	}
 	args, err := buildRunArgs("jira", "get", []string{"SDO-1"}, nil, false)

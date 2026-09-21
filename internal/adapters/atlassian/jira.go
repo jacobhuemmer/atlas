@@ -13,18 +13,26 @@ import (
 )
 
 // Memory is the fake REST seed. Issues are keyed by hostname+key; pages by hostname+id;
-// PRs by workspace+repo+id.
+// PRs by workspace+repo+id; Garda customer requests by hostname+key.
 type Memory struct {
-	mu          sync.Mutex
-	issues      map[string]domain.Issue
-	transitions map[string][]string
-	next        map[string]int
-	pages       map[string]domain.Page
-	spaces      map[string]string
-	nextPage    int
-	prs         map[string]domain.PullRequest
-	prDiffs     map[string]string
-	nextPR      map[string]int
+	mu             sync.Mutex
+	issues         map[string]domain.Issue
+	transitions    map[string][]string
+	next           map[string]int
+	pages          map[string]domain.Page
+	spaces         map[string]string
+	nextPage       int
+	prs            map[string]domain.PullRequest
+	prDiffs        map[string]string
+	nextPR         map[string]int
+	desks          []domain.ServiceDesk
+	types          map[string][]domain.RequestType
+	requests       map[string]domain.CustomerRequest
+	jsmTransitions map[string][]string
+	nextReq        map[string]int
+	lastComment    domain.Comment
+	lastCreate     map[string]any
+	searchCalls    int
 }
 
 // JiraAPI is the in-process adapter used by ATLAS_FAKE and tests.
@@ -109,6 +117,7 @@ func (m *Memory) Search(_ context.Context, hostname, jql string) (domain.SearchR
 	}
 	projects := domain.JQLProjects(jql)
 	m.mu.Lock()
+	m.searchCalls++
 	defer m.mu.Unlock()
 	items := make([]domain.Issue, 0)
 	for _, iss := range m.issues {

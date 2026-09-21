@@ -50,7 +50,7 @@ No args → overview: three tools, four recipe topics, write opt-in. `topic` set
 
 ### Write gate
 
-Phase 3 write list: `jira create|edit|comment|transition|link`. `jira link` is gated now; the verb lands in Phase 4. Later: `confluence create|update`, `pr create|comment|merge`, `jsm create|comment|transition`. Writes dry-run unless `write_opt_in` is true.
+Write list: `jira create|edit|comment|transition|link`, `confluence create|update`, `pr create|comment|merge`, `jsm create|comment|transition`. Writes dry-run unless `write_opt_in` is true.
 
 ### Forbidden via run
 
@@ -60,7 +60,7 @@ Phase 3 write list: `jira create|edit|comment|transition|link`. `jira link` is g
 
 | Command | Behavior |
 | --- | --- |
-| `atlas --help` | Lists `auth`, `site`, `mcp`. JSON, exit classes 3/4/5/6. |
+| `atlas --help` | Lists `auth`, `site`, `jira`, `confluence`, `pr`, `jsm`, `mcp`. JSON, exit classes 3/4/5/6. |
 | `atlas mcp --help` / `atlas mcp serve --help` | Exit 0, no session. Names stdio, three tools, write opt-in default false, four recipe topics. |
 | `atlas mcp serve` | JSON-RPC on stdio until stdin closes. `--human` → usage (3). |
 | `atlas auth status` | Signed-out JSON with three sites, no tokens. |
