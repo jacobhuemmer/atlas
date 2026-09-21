@@ -28,9 +28,34 @@ type Client struct {
 
 func (c *Client) httpc() *http.Client {
 	if c != nil && c.HTTP != nil {
+		if c.HTTP.CheckRedirect == nil {
+			c.HTTP.CheckRedirect = keepBasicAuthOnRedirect
+		}
 		return c.HTTP
 	}
-	return &http.Client{Timeout: 30 * time.Second}
+	return &http.Client{Timeout: 30 * time.Second, CheckRedirect: keepBasicAuthOnRedirect}
+}
+
+// keepBasicAuthOnRedirect copies Authorization onto same-host redirects.
+// net/http strips it, which makes /search/jql return an empty anonymous page
+// while /issue/{key} still works (often no extra hop).
+func keepBasicAuthOnRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return http.ErrUseLastResponse
+	}
+	if len(via) == 0 {
+		return nil
+	}
+	prev := via[len(via)-1]
+	if req.URL.Host != prev.URL.Host {
+		return nil
+	}
+	if req.Header.Get("Authorization") == "" {
+		if auth := prev.Header.Get("Authorization"); auth != "" {
+			req.Header.Set("Authorization", auth)
+		}
+	}
+	return nil
 }
 
 func (c *Client) origin(hostname string) string {

@@ -38,6 +38,32 @@ func liveClient(t *testing.T, h http.Handler) (*Client, *httptest.Server) {
 	return c, srv
 }
 
+func TestKeepBasicAuthOnSameHostRedirect(t *testing.T) {
+	sawAuth := false
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	mux.HandleFunc("/from", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, srv.URL+"/to", http.StatusFound)
+	})
+	mux.HandleFunc("/to", func(w http.ResponseWriter, r *http.Request) {
+		_, p, ok := r.BasicAuth()
+		sawAuth = ok && p == "tok"
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	store := &keychain.Fake{}
+	_ = auth.PutSite(store, "dev", auth.Cred{Email: "a@b.c", Token: "tok"})
+	c := &Client{Store: store, BaseURL: srv.URL}
+	code, _, err := c.doJSON(context.Background(), http.MethodGet, srv.URL+"/from", auth.Cred{Email: "a@b.c", Token: "tok"}, nil, nil)
+	if err != nil || code != http.StatusOK {
+		t.Fatalf("%d %v", code, err)
+	}
+	if !sawAuth {
+		t.Fatal("authorization dropped on redirect")
+	}
+}
+
 func TestJiraGetLive(t *testing.T) {
 	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/rest/api/3/issue/ABC-1" {
@@ -108,11 +134,8 @@ func TestJiraSearchPostsJQLAndFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if method != http.MethodGet || path != "/rest/api/3/search/jql" {
-		t.Fatalf("%s %s", method, path)
-	}
-	if !strings.Contains(rawQuery, "jql=") || !strings.Contains(rawQuery, "fields=") {
-		t.Fatal(rawQuery)
+	if method != http.MethodPost || path != "/rest/api/3/search/jql" {
+		t.Fatalf("%s %s %s", method, path, rawQuery)
 	}
 	if page.Count != 1 || page.Items[0].Key != "ABC-1" || page.Items[0].Summary != "hello" {
 		t.Fatalf("%+v", page)
@@ -123,10 +146,6 @@ func TestJiraSearchEmptyGETFallsBackToPOST(t *testing.T) {
 	var methods []string
 	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		methods = append(methods, r.Method+" "+r.URL.Path)
-		if r.Method == http.MethodGet && r.URL.Path == "/rest/api/3/search/jql" {
-			_ = json.NewEncoder(w).Encode(map[string]any{"issues": []any{}})
-			return
-		}
 		if r.Method == http.MethodPost && r.URL.Path == "/rest/api/3/search/jql" {
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"issues": []any{map[string]any{

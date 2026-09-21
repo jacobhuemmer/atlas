@@ -43,12 +43,13 @@ func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchRe
 	if err != nil {
 		return domain.SearchResult{}, err
 	}
-	vals := url.Values{}
-	vals.Set("jql", jql)
-	vals.Set("maxResults", "50")
-	vals.Set("fields", strings.Join(jiraFieldList, ","))
-	getURL := joinURL(j.origin(hostname), "/rest/api/3/search/jql") + "?" + vals.Encode()
-	code, body, err := j.doJSON(ctx, http.MethodGet, getURL, cred, nil, nil)
+	payload := map[string]any{
+		"jql":        jql,
+		"maxResults": 50,
+		"fields":     []string{"id", "key"},
+	}
+	postURL := joinURL(j.origin(hostname), "/rest/api/3/search/jql")
+	code, body, err := j.doJSON(ctx, http.MethodPost, postURL, cred, nil, payload)
 	if err != nil {
 		return domain.SearchResult{}, err
 	}
@@ -58,13 +59,12 @@ func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchRe
 	}
 	items := issuesFromSearch(hostname, parsed)
 	if code != http.StatusOK || len(items) == 0 {
-		payload := map[string]any{
-			"jql":        jql,
-			"maxResults": 50,
-			"fields":     jiraFieldList,
-		}
-		postURL := joinURL(j.origin(hostname), "/rest/api/3/search/jql")
-		code, body, err = j.doJSON(ctx, http.MethodPost, postURL, cred, nil, payload)
+		vals := url.Values{}
+		vals.Set("jql", jql)
+		vals.Set("maxResults", "50")
+		vals.Set("fields", "id,key")
+		getURL := joinURL(j.origin(hostname), "/rest/api/3/search/jql") + "?" + vals.Encode()
+		code, body, err = j.doJSON(ctx, http.MethodGet, getURL, cred, nil, nil)
 		if err != nil {
 			return domain.SearchResult{}, err
 		}
@@ -138,10 +138,30 @@ func issueIDString(v any) string {
 }
 
 func (j Jira) hydrateSearch(ctx context.Context, hostname string, items []domain.Issue) []domain.Issue {
+	need := make([]string, 0, len(items))
+	for _, iss := range items {
+		if iss.Summary == "" || !strings.Contains(iss.Key, "-") {
+			if iss.Key != "" {
+				need = append(need, iss.Key)
+			}
+		}
+	}
+	fetched := map[string]domain.Issue{}
+	if len(need) > 0 {
+		if bulk, err := j.bulkGet(ctx, hostname, need); err == nil {
+			for _, iss := range bulk {
+				fetched[iss.Key] = iss
+			}
+		}
+	}
 	out := make([]domain.Issue, 0, len(items))
 	for _, iss := range items {
 		if iss.Summary != "" && strings.Contains(iss.Key, "-") {
 			out = append(out, iss)
+			continue
+		}
+		if got, ok := fetched[iss.Key]; ok {
+			out = append(out, got)
 			continue
 		}
 		got, err := j.Get(ctx, hostname, iss.Key)
@@ -154,6 +174,29 @@ func (j Jira) hydrateSearch(ctx context.Context, hostname string, items []domain
 		out = append(out, got)
 	}
 	return out
+}
+
+func (j Jira) bulkGet(ctx context.Context, hostname string, ids []string) ([]domain.Issue, error) {
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return nil, err
+	}
+	u := joinURL(j.origin(hostname), "/rest/api/3/issue/bulkfetch")
+	code, body, err := j.doJSON(ctx, http.MethodPost, u, cred, nil, map[string]any{
+		"issueIdsOrKeys": ids,
+		"fields":         jiraFieldList,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if code != http.StatusOK {
+		return nil, MapStatus(code)
+	}
+	var items []domain.Issue
+	for _, raw := range asList(mustJSON(body)["issues"]) {
+		items = append(items, issueFromREST(hostname, asMap(raw)))
+	}
+	return items, nil
 }
 
 func (j Jira) Create(ctx context.Context, hostname string, in domain.CreateIssue, dryRun bool) (domain.Issue, error) {
