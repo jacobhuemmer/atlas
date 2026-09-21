@@ -9,6 +9,7 @@ Namespaces:
   site         list and resolve the three known clouds
   jira         get, search, create, edit, comment, transition, link on one site
   confluence   get, search, create, update (no delete). CCAB on sesami-io
+  pr           get, list, create, comment, merge, diff (no delete). workspace sesamiio
   mcp          stdio MCP for agents (serve)
 
 Output: JSON on stdout by default. --human for text. Diagnostics on stderr.
@@ -78,5 +79,23 @@ CQL that names CCAB infers sesami-io; CQL with no space and no --site is usage.
 There is no delete verb.
 MCP writes dry-run unless write_opt_in is true.
 Live base: https://sesami-io.atlassian.net/wiki/api/v2
+Output: JSON (default) or --human.
+`
+
+const prHelp = `atlas pr — Bitbucket Cloud REST 2.0
+
+Verbs: get, list, create, comment, merge, diff
+get:     atlas pr get --repo atlas --id 1
+list:    atlas pr list --repo atlas
+create:  atlas pr create --repo atlas --title '...' --source <branch> [--target main]
+comment: atlas pr comment --repo atlas --id 1 --body '...'
+merge:   atlas pr merge --repo atlas --id 1
+diff:    atlas pr diff --repo atlas --id 1
+
+--workspace is optional and defaults to sesamiio. Merge is a write.
+There is no delete verb. SSH and git stay out of pr.
+Reviewer updates are REST fields on create, not a missing Rovo action.
+MCP writes dry-run unless write_opt_in is true.
+Live base: https://api.bitbucket.org/2.0/repositories/{workspace}/{repo}/pullrequests
 Output: JSON (default) or --human.
 `

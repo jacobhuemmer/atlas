@@ -19,6 +19,7 @@ func main() {
 		mem := atlassian.Seed()
 		d.Jira = atlassian.JiraAPI{Memory: mem}
 		d.Confluence = atlassian.ConfluenceAPI{Memory: mem}
+		d.PR = atlassian.PRAPI{Memory: mem}
 		d.Store = &keychain.FileStore{Path: keychain.FakeSessionPath()}
 		d.Login = auth.FakeLogin()
 	} else {

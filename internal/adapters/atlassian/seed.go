@@ -1,6 +1,10 @@
 package atlassian
 
-import "github.com/masonhuemmer/atlas/internal/domain"
+import (
+	"strconv"
+
+	"github.com/masonhuemmer/atlas/internal/domain"
+)
 
 const (
 	hostDevel = "sesamidevel.atlassian.net"
@@ -9,7 +13,15 @@ const (
 
 const seedCCABPageID = "100"
 
-// Seed returns in-memory issues and pages keyed by site+id for ATLAS_FAKE and tests.
+const seedPRDiff = `diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -1 +1,2 @@
+ atlas
++phase 6
+`
+
+// Seed returns in-memory issues, pages, and PRs for ATLAS_FAKE and tests.
 func Seed() *Memory {
 	m := &Memory{
 		issues:      map[string]domain.Issue{},
@@ -18,6 +30,9 @@ func Seed() *Memory {
 		pages:       map[string]domain.Page{},
 		spaces:      map[string]string{"CCAB": "ccab-space-id"},
 		nextPage:    101,
+		prs:         map[string]domain.PullRequest{},
+		prDiffs:     map[string]string{},
+		nextPR:      map[string]int{},
 	}
 	for _, iss := range []domain.Issue{
 		{
@@ -73,6 +88,20 @@ func Seed() *Memory {
 		URL:           domain.WikiPageURL(hostIO, "CCAB", seedCCABPageID),
 		Version:       1,
 	})
+	pr := domain.PullRequest{
+		ID:          1,
+		Workspace:   domain.DefaultWorkspace,
+		Repo:        "atlas",
+		Title:       "Phase 6 Bitbucket PRs",
+		Description: "Seed PR for atlas pr get",
+		Source:      "feature/pr-cli",
+		Target:      domain.DefaultTargetBranch,
+		State:       "OPEN",
+		URL:         domain.PRURL(domain.DefaultWorkspace, "atlas", 1),
+	}
+	m.putPR(pr)
+	m.prDiffs[prKey(pr.Workspace, pr.Repo, pr.ID)] = seedPRDiff
+	m.nextPR[prRepoKey(pr.Workspace, pr.Repo)] = 2
 	return m
 }
 
@@ -94,4 +123,12 @@ func issueNumber(key string) int {
 
 func memKey(hostname, key string) string {
 	return hostname + "\x00" + key
+}
+
+func prRepoKey(workspace, repo string) string {
+	return workspace + "\x00" + repo
+}
+
+func prKey(workspace, repo string, id int) string {
+	return workspace + "\x00" + repo + "\x00" + strconv.Itoa(id)
 }

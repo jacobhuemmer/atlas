@@ -12,7 +12,8 @@ import (
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
-// Memory is the fake REST seed. Issues are keyed by hostname+key; pages by hostname+id.
+// Memory is the fake REST seed. Issues are keyed by hostname+key; pages by hostname+id;
+// PRs by workspace+repo+id.
 type Memory struct {
 	mu          sync.Mutex
 	issues      map[string]domain.Issue
@@ -21,6 +22,9 @@ type Memory struct {
 	pages       map[string]domain.Page
 	spaces      map[string]string
 	nextPage    int
+	prs         map[string]domain.PullRequest
+	prDiffs     map[string]string
+	nextPR      map[string]int
 }
 
 // JiraAPI is the in-process adapter used by ATLAS_FAKE and tests.
