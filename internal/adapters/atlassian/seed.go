@@ -7,12 +7,17 @@ const (
 	hostIO    = "sesami-io.atlassian.net"
 )
 
-// Seed returns in-memory issues keyed by site+key for ATLAS_FAKE and tests.
+const seedCCABPageID = "100"
+
+// Seed returns in-memory issues and pages keyed by site+id for ATLAS_FAKE and tests.
 func Seed() *Memory {
 	m := &Memory{
 		issues:      map[string]domain.Issue{},
 		transitions: map[string][]string{},
 		next:        map[string]int{},
+		pages:       map[string]domain.Page{},
+		spaces:      map[string]string{"CCAB": "ccab-space-id"},
+		nextPage:    101,
 	}
 	for _, iss := range []domain.Issue{
 		{
@@ -57,6 +62,17 @@ func Seed() *Memory {
 			m.next[iss.Project] = n + 1
 		}
 	}
+	m.putPage(domain.Page{
+		ID:            seedCCABPageID,
+		Site:          hostIO,
+		Space:         "CCAB",
+		Title:         "CAB-109",
+		Body:          "CCAB page for CAB-109",
+		ContentFormat: domain.DefaultBodyFormat,
+		Status:        "current",
+		URL:           domain.WikiPageURL(hostIO, "CCAB", seedCCABPageID),
+		Version:       1,
+	})
 	return m
 }
 

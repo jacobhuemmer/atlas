@@ -11,19 +11,21 @@ import (
 	"strings"
 
 	"github.com/masonhuemmer/atlas/internal/app/auth"
+	"github.com/masonhuemmer/atlas/internal/app/confluence"
 	"github.com/masonhuemmer/atlas/internal/app/jira"
 	"github.com/masonhuemmer/atlas/internal/config"
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
 type Deps struct {
-	Config config.Config
-	Store  auth.Store
-	Login  auth.LoginFn
-	Jira   jira.Store
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Config     config.Config
+	Store      auth.Store
+	Login      auth.LoginFn
+	Jira       jira.Store
+	Confluence confluence.Store
+	Stdin      io.Reader
+	Stdout     io.Writer
+	Stderr     io.Writer
 }
 
 func Run(args []string, d Deps) int {
@@ -55,6 +57,8 @@ func Run(args []string, d Deps) int {
 		return runSite(rest, d, format)
 	case "jira":
 		return runJira(rest, d, format)
+	case "confluence":
+		return runConfluence(rest, d, format)
 	case "mcp":
 		return runMCP(rest, d, format)
 	default:

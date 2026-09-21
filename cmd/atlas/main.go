@@ -18,6 +18,7 @@ func main() {
 	if os.Getenv("ATLAS_FAKE") == "1" {
 		mem := atlassian.Seed()
 		d.Jira = atlassian.JiraAPI{Memory: mem}
+		d.Confluence = atlassian.ConfluenceAPI{Memory: mem}
 		d.Store = &keychain.FileStore{Path: keychain.FakeSessionPath()}
 		d.Login = auth.FakeLogin()
 	} else {

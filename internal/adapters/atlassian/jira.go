@@ -12,12 +12,15 @@ import (
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
-// Memory is the fake Jira REST seed. Issues are keyed by hostname+key.
+// Memory is the fake REST seed. Issues are keyed by hostname+key; pages by hostname+id.
 type Memory struct {
 	mu          sync.Mutex
 	issues      map[string]domain.Issue
 	transitions map[string][]string
 	next        map[string]int
+	pages       map[string]domain.Page
+	spaces      map[string]string
+	nextPage    int
 }
 
 // JiraAPI is the in-process adapter used by ATLAS_FAKE and tests.
@@ -299,6 +302,20 @@ func (m *Memory) putLocked(iss domain.Issue) {
 		iss.BrowseURL = domain.BrowseURL(iss.Site, iss.Key)
 	}
 	m.issues[memKey(iss.Site, iss.Key)] = iss
+}
+
+func (m *Memory) putPage(p domain.Page) {
+	m.putPageLocked(p)
+}
+
+func (m *Memory) putPageLocked(p domain.Page) {
+	if p.URL == "" {
+		p.URL = domain.WikiPageURL(p.Site, p.Space, p.ID)
+	}
+	if p.ContentFormat == "" {
+		p.ContentFormat = domain.DefaultBodyFormat
+	}
+	m.pages[memKey(p.Site, p.ID)] = p
 }
 
 func applyFields(iss *domain.Issue, fields map[string]any) error {

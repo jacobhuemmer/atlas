@@ -55,6 +55,21 @@ func TestResolveJQLSameCloudAndCrossCloud(t *testing.T) {
 	}
 }
 
+func TestResolveCQLSpace(t *testing.T) {
+	s, err := Resolve(ResolveInput{CQL: `space = CCAB AND type = page`})
+	if err != nil || s.Hostname != "sesami-io.atlassian.net" {
+		t.Fatalf("%+v %v", s, err)
+	}
+	s, err = Resolve(ResolveInput{CQL: `space = CCAB AND type = page AND title ~ "CAB-109"`})
+	if err != nil || s.Alias != "sesami-io" {
+		t.Fatalf("%+v %v", s, err)
+	}
+	_, err = Resolve(ResolveInput{CQL: `type = page AND title ~ "CAB-109"`})
+	if ExitOf(err) != ExitUsage {
+		t.Fatal(err)
+	}
+}
+
 func TestResolveCannotInfer(t *testing.T) {
 	_, err := Resolve(ResolveInput{})
 	if ExitOf(err) != ExitUsage {

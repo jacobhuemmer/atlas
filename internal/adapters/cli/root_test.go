@@ -14,13 +14,15 @@ import (
 
 func testDeps() (Deps, *bytes.Buffer, *bytes.Buffer) {
 	out, errw := &bytes.Buffer{}, &bytes.Buffer{}
+	mem := atlassian.Seed()
 	d := Deps{
-		Config: config.Config{},
-		Store:  &keychain.Fake{},
-		Login:  auth.FakeLogin(),
-		Jira:   atlassian.JiraAPI{Memory: atlassian.Seed()},
-		Stdout: out,
-		Stderr: errw,
+		Config:     config.Config{},
+		Store:      &keychain.Fake{},
+		Login:      auth.FakeLogin(),
+		Jira:       atlassian.JiraAPI{Memory: mem},
+		Confluence: atlassian.ConfluenceAPI{Memory: mem},
+		Stdout:     out,
+		Stderr:     errw,
 	}
 	return d, out, errw
 }
@@ -32,7 +34,7 @@ func TestHelpNoSession(t *testing.T) {
 		t.Fatal(code)
 	}
 	s := out.String()
-	for _, want := range []string{"auth", "site", "jira", "mcp", "JSON", "3", "4", "5", "6"} {
+	for _, want := range []string{"auth", "site", "jira", "confluence", "mcp", "JSON", "3", "4", "5", "6"} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("missing %q in %s", want, s)
 		}

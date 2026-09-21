@@ -5,10 +5,11 @@ const rootHelp = `atlas — Atlassian CLI for Sesami and Garda sites
 Usage: atlas <namespace> <verb> [flags]
 
 Namespaces:
-  auth      sign in, status, logout (core, not a workload)
-  site      list and resolve the three known clouds
-  jira      get, search, create, edit, comment, transition, link on one site
-  mcp       stdio MCP for agents (serve)
+  auth         sign in, status, logout (core, not a workload)
+  site         list and resolve the three known clouds
+  jira         get, search, create, edit, comment, transition, link on one site
+  confluence   get, search, create, update (no delete). CCAB on sesami-io
+  mcp          stdio MCP for agents (serve)
 
 Output: JSON on stdout by default. --human for text. Diagnostics on stderr.
 Exit classes: 0 success; 3 usage/config; 4 auth; 5 service; 6 not-found.
@@ -61,5 +62,21 @@ MCP writes dry-run unless write_opt_in is true.
 Default search fields: summary, description, status, issuetype, priority,
 labels, assignee, reporter, created, updated, project.
 Browse URL: https://<hostname>/browse/<KEY>
+Output: JSON (default) or --human.
+`
+
+const confluenceHelp = `atlas confluence — licensed Confluence on one cloud
+
+Verbs: get, search, create, update
+get:    atlas confluence get <pageId> --site sesami-io
+search: atlas confluence search --cql 'space = CCAB AND type = page AND title ~ "CAB-109"'
+create: atlas confluence create --space CCAB --title '...' --body '...'
+update: atlas confluence update <pageId> --body '...' [--site sesami-io]
+
+CCAB lives on sesami-io. Space key CCAB infers that site. Body format is markdown.
+CQL that names CCAB infers sesami-io; CQL with no space and no --site is usage.
+There is no delete verb.
+MCP writes dry-run unless write_opt_in is true.
+Live base: https://sesami-io.atlassian.net/wiki/api/v2
 Output: JSON (default) or --human.
 `

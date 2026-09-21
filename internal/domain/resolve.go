@@ -7,13 +7,14 @@ import (
 
 // ResolveInput is enough context to pick exactly one of the three clouds.
 // Site may be an alias, hostname, or UUID. --site is required only when
-// nothing else can infer (raw JQL with no project, numeric id only).
+// nothing else can infer (raw JQL with no project, CQL with no space, numeric id only).
 type ResolveInput struct {
 	Site    string // alias, hostname, or UUID
 	Project string
 	Issue   string // SDO-1, CAB-12
 	Space   string // CCAB
 	JQL     string
+	CQL     string
 }
 
 var (
@@ -21,6 +22,8 @@ var (
 	reProjectEq  = regexp.MustCompile(`(?i)\bproject\s*=\s*['"]?([A-Za-z][A-Za-z0-9]+)['"]?`)
 	reProjectIn  = regexp.MustCompile(`(?i)\bproject\s+in\s*\(([^)]*)\)`)
 	reProjectTok = regexp.MustCompile(`[A-Za-z][A-Za-z0-9]+`)
+	reSpaceEq    = regexp.MustCompile(`(?i)\bspace\s*=\s*['"]?([A-Za-z][A-Za-z0-9]+)['"]?`)
+	reSpaceIn    = regexp.MustCompile(`(?i)\bspace\s+in\s*\(([^)]*)\)`)
 )
 
 // Resolve returns exactly one Site. Inference never crosses clouds.
@@ -63,6 +66,14 @@ func Resolve(in ResolveInput) (Site, error) {
 		}
 	}
 
+	if cql := strings.TrimSpace(in.CQL); cql != "" {
+		for _, sp := range CQLSpaces(cql) {
+			if a, ok := aliasForSpace(sp); ok {
+				aliases = addAlias(aliases, a)
+			}
+		}
+	}
+
 	switch len(aliases) {
 	case 0:
 		return Site{}, Usage("cannot infer site").WithHint("pass --site sesamidevel, sesami-io, or garda")
@@ -98,6 +109,29 @@ func JQLProjects(jql string) []string {
 		add(m[1])
 	}
 	for _, m := range reProjectIn.FindAllStringSubmatch(jql, -1) {
+		for _, tok := range reProjectTok.FindAllString(m[1], -1) {
+			add(tok)
+		}
+	}
+	return out
+}
+
+// CQLSpaces returns space keys named by space = KEY or space in (...).
+func CQLSpaces(cql string) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(p string) {
+		p = strings.ToUpper(strings.TrimSpace(p))
+		if p == "" || seen[p] {
+			return
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	for _, m := range reSpaceEq.FindAllStringSubmatch(cql, -1) {
+		add(m[1])
+	}
+	for _, m := range reSpaceIn.FindAllStringSubmatch(cql, -1) {
 		for _, tok := range reProjectTok.FindAllString(m[1], -1) {
 			add(tok)
 		}
