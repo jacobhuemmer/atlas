@@ -45,14 +45,36 @@ Missing config without `ATLAS_FAKE=1` is usage (exit 3).
 
 ## Auth
 
-Per-site Basic `email:token` in the macOS keychain (file fallback if needed). Login stays in a terminal.
+Per-site Basic `email:token` in the macOS keychain (file fallback if needed). Login stays in a terminal. Jira, Confluence, and JSM use `--site`. Bitbucket PRs use a **separate** workspace token; they do not reuse a licensed-site or JSM slot.
 
 ```sh
 atlas auth login --site ALIAS --email EMAIL --token TOKEN
+atlas auth login --workspace WORKSPACE --email EMAIL --token TOKEN
 atlas auth status
 ```
 
-`--from-op` is a human `login` flag only. Do not call `auth login` through MCP.
+`--site` and `--workspace` are mutually exclusive. `--from-op` is a human `login` flag only. Do not call `auth login` through MCP. Tokens never go in `config.toml`.
+
+### Bitbucket API token
+
+`atlas pr` talks to `https://api.bitbucket.org/2.0` with the cred stored for `--workspace` (else `[defaults].workspace`). A classic unscoped Atlassian API token is not enough. Create an API token **with scopes**, app **Bitbucket**:
+
+Read:
+
+- `read:user:bitbucket`
+- `read:workspace:bitbucket`
+- `read:project:bitbucket`
+- `read:repository:bitbucket`
+- `read:pullrequest:bitbucket`
+- `read:issue:bitbucket`
+
+Write:
+
+- `write:repository:bitbucket`
+- `write:pullrequest:bitbucket`
+- `write:issue:bitbucket`
+
+`pr get`, `list`, and `diff` need the read pullrequest and repository scopes. `pr create`, `comment`, and `merge` also need `write:pullrequest:bitbucket`. Missing workspace cred is auth (exit 4); hint is `atlas auth login --workspace WORKSPACE`. There is no fallback to a Jira site token.
 
 ## Usage
 
@@ -70,7 +92,7 @@ atlas <namespace> <verb> [flags]
 | `jsm` | `desks`, `types`, `list`, `get`, `create`, `comment`, `transition` |
 | `mcp` | `serve` |
 
-Every call resolves one site from config. A `jsm_customer` site refuses `jira` and `confluence` (use `atlas jsm`). Exit classes: `0` success, `3` usage/config, `4` auth, `5` service, `6` not-found.
+Every call resolves one site from config. A `jsm_customer` site refuses `jira` and `confluence` (use `atlas jsm`). `atlas pr` uses the workspace Bitbucket cred, not a site token. Exit classes: `0` success, `3` usage/config, `4` auth, `5` service, `6` not-found.
 
 ## MCP
 
