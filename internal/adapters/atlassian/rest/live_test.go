@@ -119,6 +119,39 @@ func TestJiraSearchPostsJQLAndFields(t *testing.T) {
 	}
 }
 
+func TestJiraSearchEmptyGETFallsBackToPOST(t *testing.T) {
+	var methods []string
+	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		methods = append(methods, r.Method+" "+r.URL.Path)
+		if r.Method == http.MethodGet && r.URL.Path == "/rest/api/3/search/jql" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"issues": []any{}})
+			return
+		}
+		if r.Method == http.MethodPost && r.URL.Path == "/rest/api/3/search/jql" {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issues": []any{map[string]any{
+					"key": "ABC-1",
+					"fields": map[string]any{
+						"summary":   "from-post",
+						"status":    map[string]any{"name": "To Do"},
+						"issuetype": map[string]any{"name": "Task"},
+						"project":   map[string]any{"key": "ABC"},
+					},
+				}},
+			})
+			return
+		}
+		t.Fatal(r.Method, r.URL.Path)
+	}))
+	page, err := Jira{Client: c}.Search(context.Background(), "dev.example.atlassian.net", "project = ABC")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Count != 1 || page.Items[0].Summary != "from-post" {
+		t.Fatalf("%v %+v", methods, page)
+	}
+}
+
 func TestJiraSearchHydratesIDOnlyHits(t *testing.T) {
 	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {

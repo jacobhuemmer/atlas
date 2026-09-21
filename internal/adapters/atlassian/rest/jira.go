@@ -52,7 +52,12 @@ func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchRe
 	if err != nil {
 		return domain.SearchResult{}, err
 	}
-	if code != http.StatusOK {
+	parsed := mustJSON(body)
+	if err := jiraSearchAPIError(code, parsed); err != nil {
+		return domain.SearchResult{}, err
+	}
+	items := issuesFromSearch(hostname, parsed)
+	if code != http.StatusOK || len(items) == 0 {
 		payload := map[string]any{
 			"jql":        jql,
 			"maxResults": 50,
@@ -63,12 +68,34 @@ func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchRe
 		if err != nil {
 			return domain.SearchResult{}, err
 		}
-		if code != http.StatusOK {
-			return domain.SearchResult{}, MapStatus(code)
+		parsed = mustJSON(body)
+		if err := jiraSearchAPIError(code, parsed); err != nil {
+			return domain.SearchResult{}, err
 		}
+		items = issuesFromSearch(hostname, parsed)
 	}
-	items := j.hydrateSearch(ctx, hostname, issuesFromSearch(hostname, mustJSON(body)))
+	items = j.hydrateSearch(ctx, hostname, items)
 	return domain.SearchResult{JQL: jql, Site: hostname, Count: len(items), Items: items}, nil
+}
+
+func jiraSearchAPIError(code int, m map[string]any) error {
+	msg := ""
+	if msgs := asList(m["errorMessages"]); len(msgs) > 0 {
+		msg, _ = msgs[0].(string)
+	}
+	if code != http.StatusOK && code != 0 {
+		err := MapStatus(code)
+		if msg != "" {
+			if de, ok := err.(*domain.Error); ok {
+				return de.WithHint(msg)
+			}
+		}
+		return err
+	}
+	if msg != "" {
+		return domain.Usage(msg)
+	}
+	return nil
 }
 
 func issuesFromSearch(hostname string, m map[string]any) []domain.Issue {
