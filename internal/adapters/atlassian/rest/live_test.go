@@ -88,6 +88,44 @@ func TestJiraGetNotFound(t *testing.T) {
 	}
 }
 
+func TestJiraSearchPostsJQLAndFields(t *testing.T) {
+	var method, path string
+	var payload map[string]any
+	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method, path = r.Method, r.URL.Path
+		b, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(b, &payload)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issues": []any{map[string]any{
+				"key": "ABC-1",
+				"fields": map[string]any{
+					"summary":   "hello",
+					"status":    map[string]any{"name": "To Do"},
+					"issuetype": map[string]any{"name": "Task"},
+					"project":   map[string]any{"key": "ABC"},
+				},
+			}},
+		})
+	}))
+	page, err := Jira{Client: c}.Search(context.Background(), "dev.example.atlassian.net", "project = ABC")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if method != http.MethodPost || path != "/rest/api/3/search/jql" {
+		t.Fatalf("%s %s", method, path)
+	}
+	if payload["jql"] != "project = ABC" {
+		t.Fatalf("%v", payload)
+	}
+	fields, _ := payload["fields"].([]any)
+	if len(fields) == 0 {
+		t.Fatalf("fields %v", payload["fields"])
+	}
+	if page.Count != 1 || page.Items[0].Key != "ABC-1" || page.Items[0].Summary != "hello" {
+		t.Fatalf("%+v", page)
+	}
+}
+
 func TestJiraCreateDryRunDoesNotPOST(t *testing.T) {
 	hit := false
 	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

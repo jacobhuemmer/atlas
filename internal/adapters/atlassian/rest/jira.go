@@ -10,6 +10,11 @@ import (
 
 const jiraFields = "summary,description,status,issuetype,priority,labels,assignee,reporter,created,updated,project,comment,issuelinks"
 
+var jiraFieldList = []string{
+	"summary", "description", "status", "issuetype", "priority", "labels",
+	"assignee", "reporter", "created", "updated", "project", "comment", "issuelinks",
+}
+
 // Jira is the live Cloud REST client (https://<hostname>/rest/api/3).
 type Jira struct {
 	*Client
@@ -36,18 +41,15 @@ func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchRe
 	if err != nil {
 		return domain.SearchResult{}, err
 	}
-	u := joinURL(j.origin(hostname), "/rest/api/3/search/jql?jql="+q(jql)+"&fields="+jiraFields+"&maxResults=50")
-	code, body, err := j.doJSON(ctx, http.MethodGet, u, cred, nil, nil)
+	payload := map[string]any{
+		"jql":        jql,
+		"maxResults": 50,
+		"fields":     jiraFieldList,
+	}
+	u := joinURL(j.origin(hostname), "/rest/api/3/search/jql")
+	code, body, err := j.doJSON(ctx, http.MethodPost, u, cred, nil, payload)
 	if err != nil {
 		return domain.SearchResult{}, err
-	}
-	if code == http.StatusNotFound {
-		// Older sites still use /search.
-		u = joinURL(j.origin(hostname), "/rest/api/3/search?jql="+q(jql)+"&fields="+jiraFields+"&maxResults=50")
-		code, body, err = j.doJSON(ctx, http.MethodGet, u, cred, nil, nil)
-		if err != nil {
-			return domain.SearchResult{}, err
-		}
 	}
 	if code != http.StatusOK {
 		return domain.SearchResult{}, MapStatus(code)
