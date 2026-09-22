@@ -22,13 +22,15 @@ A site with role jsm_customer refuses jira and confluence (use atlas jsm).
 Secrets never appear in stdout, MCP text, or logs.
 `
 
-const authHelp = `atlas auth — per-site Basic email:token (keyring service atlas-cli)
+const authHelp = `atlas auth — site and Bitbucket workspace Basic email:token (keyring service atlas-cli)
 
 Verbs: status, login, logout
-status: signed_in, session_usable, sites[] with hostname and role. No tokens.
+status: signed_in, session_usable, sites[], and workspaces[]. No emails or tokens.
 login:  --site ALIAS --email EMAIL --token TOKEN
+        --workspace WORKSPACE --email EMAIL --token TOKEN
+        --site and --workspace are mutually exclusive.
         --from-op is a human terminal flag only (not via atlas_run).
-logout: optional --site ALIAS (all sites if omitted)
+logout: optional --site ALIAS or --workspace WORKSPACE (all credentials if omitted)
 Login and logout stay terminal-only. Do not call them through atlas_run.
 Output: JSON (default) or --human.
 `
@@ -93,6 +95,9 @@ merge:   atlas pr merge --repo SLUG --id 1
 diff:    atlas pr diff --repo SLUG --id 1
 
 --workspace is optional and defaults to config defaults.workspace. Merge is a write.
+PR operations require a separate credential stored by workspace:
+atlas auth login --workspace WORKSPACE --email EMAIL --token TOKEN.
+There is no fallback to a Jira or Confluence site credential.
 There is no delete verb. SSH and git stay out of pr.
 Reviewer updates are REST fields on create.
 MCP writes dry-run unless write_opt_in is true.

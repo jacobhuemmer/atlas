@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/masonhuemmer/atlas/internal/domain"
@@ -48,4 +49,57 @@ func TestStatusPerSiteUsable(t *testing.T) {
 		t.Fatal(err, st)
 	}
 	_ = domain.Sites()
+}
+
+func TestWorkspaceStatusAndTargetedLogoutPreserveOtherCredentials(t *testing.T) {
+	s := &memStore{}
+	workspace := domain.DefaultWorkspace()
+	if err := PutSite(s, "sesamidevel", Cred{Email: "site@example.com", Token: "site-secret"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := PutWorkspace(s, workspace, Cred{Email: "bitbucket@example.com", Token: "workspace-secret"}); err != nil {
+		t.Fatal(err)
+	}
+
+	st, err := Status(s)
+	if err != nil || !st.SignedIn || !st.SessionUsable || !workspaceUsable(st, workspace) {
+		t.Fatalf("status=%+v err=%v", st, err)
+	}
+	if err := LogoutSite(s, "sesamidevel"); err != nil {
+		t.Fatal(err)
+	}
+	st, err = Status(s)
+	if err != nil || !st.SignedIn || !workspaceUsable(st, workspace) {
+		t.Fatalf("workspace lost after site logout: status=%+v err=%v", st, err)
+	}
+	if err := PutSite(s, "sesamidevel", Cred{Email: "site@example.com", Token: "site-secret"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := LogoutWorkspace(s, workspace); err != nil {
+		t.Fatal(err)
+	}
+	st, err = Status(s)
+	if err != nil || !st.SignedIn || workspaceUsable(st, workspace) {
+		t.Fatalf("site lost after workspace logout: status=%+v err=%v", st, err)
+	}
+}
+
+func TestWorkspaceCredMissingUsesWorkspaceLoginHint(t *testing.T) {
+	s := &memStore{}
+	if err := PutSite(s, "sesamidevel", Cred{Email: "site@example.com", Token: "site-secret"}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := WorkspaceCred(s, "other-workspace")
+	if domain.ClassOf(err) != domain.ClassAuth || !strings.Contains(err.(*domain.Error).Hint, "--workspace other-workspace") {
+		t.Fatalf("unexpected error: %#v", err)
+	}
+}
+
+func workspaceUsable(st domain.Session, slug string) bool {
+	for _, workspace := range st.Workspaces {
+		if workspace.Slug == slug {
+			return workspace.Usable
+		}
+	}
+	return false
 }

@@ -28,7 +28,7 @@ MCP writes dry-run unless write_opt_in is true.
 
 	recipePRReview = `pr-review
 
-Bitbucket Cloud REST. Workspace from config defaults.workspace. No PR delete. SSH stays out.
+Bitbucket Cloud REST. Workspace from config defaults.workspace. Authentication uses the separate credential stored for that workspace; it never falls back to a site credential. No PR delete. SSH stays out.
 
   atlas pr get --repo SLUG --id 1
   atlas pr comment --repo SLUG --id 1 --body '…' --dry-run
@@ -36,6 +36,7 @@ Bitbucket Cloud REST. Workspace from config defaults.workspace. No PR delete. SS
   atlas_run namespace=pr verb=get flags repo=SLUG id=1
 
 Merge is a write. Reviewer updates are REST fields.
+Missing workspace auth requires atlas auth login --workspace WORKSPACE in a terminal.
 `
 
 	recipeJSMCustomer = `jsm-customer

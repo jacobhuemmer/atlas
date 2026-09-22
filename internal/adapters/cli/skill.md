@@ -17,7 +17,7 @@ workspace, and the default JSM site live in the operator catalog
 
 | Tool | When |
 |------|------|
-| `atlas_status` | Signed-in, per-site role. No tokens. Does not open a browser. |
+| `atlas_status` | Signed-in, per-site role, and per-workspace usability. No tokens. Does not open a browser. |
 | `atlas_help` | Namespace/verb help, or recipe `topic`. No session. |
 | `atlas_run` | One CLI namespace+verb. Returns that command's JSON. |
 
@@ -32,9 +32,7 @@ Do not add per-verb tools. Do not invent Atlassian REST.
 Forbidden via `atlas_run`: `auth login`, `auth logout`, namespace `mcp`.
 Those are terminal commands.
 
-Failure content is `{class,message,hint}` with `usage` | `auth` | `service`
-| `not_found`. Auth → tell the operator to run `atlas auth login --site ALIAS`.
-Do not print tokens.
+Failure content is `{class,message,hint}` with `usage` | `auth` | `service` | `not_found`. Site auth → tell the operator to run `atlas auth login --site ALIAS`. PR auth → tell the operator to run `atlas auth login --workspace WORKSPACE`. Do not print tokens.
 
 Recipes (`atlas_help` `topic`, also MCP prompts): `jira-search`,
 `confluence-write`, `pr-review`, `jsm-customer`. This skill is also
@@ -66,6 +64,4 @@ keys map to an alias. JQL/CQL that names two sites is usage. A
 
 ## Preflight
 
-If `atlas_status` shows `signed_in` false or the needed site `usable`
-false, stop and tell the operator to `atlas auth login --site ALIAS
---email EMAIL --token TOKEN`. Do not loop on login.
+If `atlas_status` shows the needed site or workspace `usable` false, stop and tell the operator to use the matching terminal login command. Sites use `atlas auth login --site ALIAS --email EMAIL --token TOKEN`; PR workspaces use `atlas auth login --workspace WORKSPACE --email EMAIL --token TOKEN`. Do not loop on login. A site credential never authorizes a PR operation.

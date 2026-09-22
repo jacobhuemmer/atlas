@@ -7,10 +7,16 @@ type SiteStatus struct {
 	Usable   bool   `json:"usable"`
 }
 
+type WorkspaceStatus struct {
+	Slug   string `json:"slug"`
+	Usable bool   `json:"usable"`
+}
+
 type Session struct {
-	SignedIn      bool         `json:"signed_in"`
-	SessionUsable bool         `json:"session_usable"`
-	Sites         []SiteStatus `json:"sites"`
+	SignedIn      bool              `json:"signed_in"`
+	SessionUsable bool              `json:"session_usable"`
+	Sites         []SiteStatus      `json:"sites"`
+	Workspaces    []WorkspaceStatus `json:"workspaces"`
 }
 
 func SignedOut() Session {
@@ -19,5 +25,9 @@ func SignedOut() Session {
 	for i, s := range table {
 		sites[i] = SiteStatus{Alias: s.Alias, Hostname: s.Hostname, Role: s.Role, Usable: false}
 	}
-	return Session{Sites: sites}
+	session := Session{Sites: sites, Workspaces: []WorkspaceStatus{}}
+	if workspace := DefaultWorkspace(); workspace != "" {
+		session.Workspaces = append(session.Workspaces, WorkspaceStatus{Slug: workspace})
+	}
+	return session
 }

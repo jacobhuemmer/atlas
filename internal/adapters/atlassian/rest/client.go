@@ -105,27 +105,11 @@ func (c *Client) credForAlias(alias string) (auth.Cred, error) {
 	return cred, nil
 }
 
-func (c *Client) licensedCred() (auth.Cred, error) {
-	if c == nil || c.Store == nil {
-		return auth.Cred{}, domain.Auth("not signed in").WithHint("atlas auth login --site ALIAS --email EMAIL --token TOKEN")
+func (c *Client) workspaceCred(workspace string) (auth.Cred, error) {
+	if c == nil {
+		return auth.WorkspaceCred(nil, workspace)
 	}
-	b, ok, err := c.Store.Get()
-	if err != nil {
-		return auth.Cred{}, err
-	}
-	if !ok || b.Sites == nil {
-		return auth.Cred{}, domain.Auth("not signed in").WithHint("atlas auth login --site ALIAS --email EMAIL --token TOKEN")
-	}
-	for _, site := range domain.Sites() {
-		if site.Role != domain.RoleLicensed {
-			continue
-		}
-		cred, ok := b.Sites[site.Alias]
-		if ok && cred.Email != "" && cred.Token != "" {
-			return cred, nil
-		}
-	}
-	return auth.Cred{}, domain.Auth("not signed in for a licensed site").WithHint("atlas auth login --site ALIAS --email EMAIL --token TOKEN")
+	return auth.WorkspaceCred(c.Store, workspace)
 }
 
 func (c *Client) doJSON(ctx context.Context, method, rawURL string, cred auth.Cred, extra http.Header, body any) (int, []byte, error) {

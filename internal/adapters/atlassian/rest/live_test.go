@@ -247,20 +247,94 @@ func TestConfluenceSearchLive(t *testing.T) {
 	}
 }
 
-func TestBitbucketGetUsesLicensedCred(t *testing.T) {
-	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/2.0/repositories/ws/atlas/pullrequests/1" {
-			t.Fatal(r.URL.Path)
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"id": 1, "title": "pr", "state": "OPEN",
-			"source":      map[string]any{"branch": map[string]any{"name": "feat"}},
-			"destination": map[string]any{"branch": map[string]any{"name": "main"}},
+func TestBitbucketOperationsUseSelectedWorkspaceCred(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(Bitbucket) error
+	}{
+		{name: "get", call: func(b Bitbucket) error {
+			_, err := b.Get(context.Background(), "workspace-b", "atlas", 1)
+			return err
+		}},
+		{name: "list", call: func(b Bitbucket) error {
+			_, err := b.List(context.Background(), "workspace-b", "atlas")
+			return err
+		}},
+		{name: "create", call: func(b Bitbucket) error {
+			_, err := b.Create(context.Background(), "workspace-b", "atlas", domain.CreatePullRequest{Title: "pr", Source: "feature"}, false)
+			return err
+		}},
+		{name: "comment", call: func(b Bitbucket) error {
+			return b.Comment(context.Background(), "workspace-b", "atlas", 1, "body", false)
+		}},
+		{name: "merge", call: func(b Bitbucket) error {
+			_, err := b.Merge(context.Background(), "workspace-b", "atlas", 1, false)
+			return err
+		}},
+		{name: "diff", call: func(b Bitbucket) error {
+			_, err := b.Diff(context.Background(), "workspace-b", "atlas", 1)
+			return err
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if user, token, ok := r.BasicAuth(); !ok || user != "workspace-b@example.com" || token != "workspace-b-token" {
+					t.Fatalf("wrong credential: user=%q token=%q present=%v", user, token, ok)
+				}
+				if !strings.Contains(r.URL.Path, "/repositories/workspace-b/atlas/pullrequests") {
+					t.Fatal(r.URL.Path)
+				}
+				switch tt.name {
+				case "list":
+					_ = json.NewEncoder(w).Encode(map[string]any{"values": []any{}})
+				case "comment":
+					w.WriteHeader(http.StatusCreated)
+					_, _ = w.Write([]byte(`{}`))
+				case "create":
+					w.WriteHeader(http.StatusCreated)
+					_ = json.NewEncoder(w).Encode(map[string]any{"id": 2, "title": "pr", "state": "OPEN"})
+				case "diff":
+					_, _ = w.Write([]byte("diff --git a/file b/file"))
+				default:
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"id": 1, "title": "pr", "state": "OPEN",
+						"source":      map[string]any{"branch": map[string]any{"name": "feat"}},
+						"destination": map[string]any{"branch": map[string]any{"name": "main"}},
+					})
+				}
+			}))
+			t.Cleanup(srv.Close)
+			store := &keychain.Fake{}
+			_ = auth.PutSite(store, "dev", auth.Cred{Email: "site@example.com", Token: "site-token"})
+			_ = auth.PutWorkspace(store, "workspace-a", auth.Cred{Email: "workspace-a@example.com", Token: "workspace-a-token"})
+			_ = auth.PutWorkspace(store, "workspace-b", auth.Cred{Email: "workspace-b@example.com", Token: "workspace-b-token"})
+			client := &Client{HTTP: srv.Client(), Store: store, BBBase: srv.URL}
+			if err := tt.call(Bitbucket{Client: client}); err != nil {
+				t.Fatal(err)
+			}
 		})
+	}
+}
+
+func TestBitbucketDoesNotFallBackToLicensedSiteCred(t *testing.T) {
+	hit := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hit = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":1}`))
 	}))
-	pr, err := Bitbucket{Client: c}.Get(context.Background(), "ws", "atlas", 1)
-	if err != nil || pr.Title != "pr" || pr.Workspace != "ws" {
-		t.Fatalf("%v %+v", err, pr)
+	t.Cleanup(srv.Close)
+	store := &keychain.Fake{}
+	_ = auth.PutSite(store, "dev", auth.Cred{Email: "site@example.com", Token: "site-token"})
+	client := &Client{HTTP: srv.Client(), Store: store, BBBase: srv.URL}
+	_, err := (Bitbucket{Client: client}).Get(context.Background(), "missing-workspace", "atlas", 1)
+	de, ok := err.(*domain.Error)
+	if !ok || de.Class != domain.ClassAuth || !strings.Contains(de.Hint, "auth login --workspace missing-workspace") {
+		t.Fatalf("unexpected error: %#v", err)
+	}
+	if hit {
+		t.Fatal("Bitbucket request sent with a licensed-site credential")
 	}
 }
 

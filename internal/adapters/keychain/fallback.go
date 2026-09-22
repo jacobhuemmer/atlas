@@ -25,6 +25,9 @@ func (f *Fallback) Put(b Blob) error {
 	if f.Primary != nil {
 		err = f.Primary.Put(b)
 		if err == nil {
+			if f.Secondary != nil {
+				return f.Secondary.Delete()
+			}
 			return nil
 		}
 		if !tooLarge(err) {
@@ -32,7 +35,13 @@ func (f *Fallback) Put(b Blob) error {
 		}
 	}
 	if f.Secondary != nil {
-		return f.Secondary.Put(b)
+		if secondaryErr := f.Secondary.Put(b); secondaryErr != nil {
+			return secondaryErr
+		}
+		if f.Primary != nil {
+			return f.Primary.Delete()
+		}
+		return nil
 	}
 	return err
 }

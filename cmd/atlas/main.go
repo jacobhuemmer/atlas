@@ -42,9 +42,9 @@ func main() {
 	os.Exit(cli.Run(os.Args, d))
 }
 
-func storeLogin(_ context.Context, _ domain.Site, email, token string) (auth.Cred, error) {
+func storeLogin(_ context.Context, email, token string) (auth.Cred, error) {
 	if email == "" || token == "" {
-		return auth.Cred{}, domain.Usage("email and token are required").WithHint("atlas auth login --site ALIAS --email EMAIL --token TOKEN")
+		return auth.Cred{}, domain.Usage("email and token are required").WithHint("atlas auth login --site ALIAS or --workspace WORKSPACE with --email EMAIL --token TOKEN")
 	}
 	return auth.Cred{Email: email, Token: token}, nil
 }
