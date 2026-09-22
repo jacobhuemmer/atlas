@@ -2,9 +2,13 @@ package cli
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/masonhuemmer/atlas/internal/adapters/atlassian/rest"
+	"github.com/masonhuemmer/atlas/internal/app/auth"
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
@@ -101,5 +105,37 @@ func TestPRDeleteIsUsage(t *testing.T) {
 	}
 	if e["class"] != "usage" {
 		t.Fatalf("%v", e)
+	}
+}
+
+func TestPRGetDoesNotUseLicensedSiteCredential(t *testing.T) {
+	hit := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hit = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":1}`))
+	}))
+	t.Cleanup(srv.Close)
+	d, _, errw := testDeps()
+	if err := auth.PutSite(d.Store, "sesamidevel", auth.Cred{Email: "site@example.com", Token: "site-token"}); err != nil {
+		t.Fatal(err)
+	}
+	d.PR = rest.Bitbucket{Client: &rest.Client{HTTP: srv.Client(), Store: d.Store, BBBase: srv.URL}}
+	code := Run([]string{"atlas", "pr", "get", "--workspace", "missing-workspace", "--repo", "atlas", "--id", "1"}, d)
+	if code != domain.ExitAuth {
+		t.Fatalf("code=%d stderr=%s", code, errw.String())
+	}
+	var failure struct {
+		Class string `json:"class"`
+		Hint  string `json:"hint"`
+	}
+	if err := json.Unmarshal(errw.Bytes(), &failure); err != nil {
+		t.Fatal(err, errw.String())
+	}
+	if failure.Class != domain.ClassAuth || !strings.Contains(failure.Hint, "auth login --workspace missing-workspace") {
+		t.Fatalf("unexpected failure: %+v", failure)
+	}
+	if hit {
+		t.Fatal("Bitbucket request sent with a licensed-site credential")
 	}
 }

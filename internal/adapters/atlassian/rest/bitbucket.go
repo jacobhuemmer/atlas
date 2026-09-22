@@ -10,13 +10,13 @@ import (
 )
 
 // Bitbucket is the live Cloud REST client (https://api.bitbucket.org/2.0).
-// Auth uses a licensed-site keyring slot (same Atlassian account).
+// Auth uses the keyring credential stored for the requested workspace.
 type Bitbucket struct {
 	*Client
 }
 
 func (b Bitbucket) Get(ctx context.Context, workspace, repo string, id int) (domain.PullRequest, error) {
-	cred, err := b.licensedCred()
+	cred, err := b.workspaceCred(workspace)
 	if err != nil {
 		return domain.PullRequest{}, err
 	}
@@ -32,7 +32,7 @@ func (b Bitbucket) Get(ctx context.Context, workspace, repo string, id int) (dom
 }
 
 func (b Bitbucket) List(ctx context.Context, workspace, repo string) (domain.PullRequestList, error) {
-	cred, err := b.licensedCred()
+	cred, err := b.workspaceCred(workspace)
 	if err != nil {
 		return domain.PullRequestList{}, err
 	}
@@ -66,7 +66,7 @@ func (b Bitbucket) Create(ctx context.Context, workspace, repo string, in domain
 	if dryRun {
 		return preview, nil
 	}
-	cred, err := b.licensedCred()
+	cred, err := b.workspaceCred(workspace)
 	if err != nil {
 		return domain.PullRequest{}, err
 	}
@@ -104,7 +104,7 @@ func (b Bitbucket) Comment(ctx context.Context, workspace, repo string, id int, 
 	if dryRun {
 		return nil
 	}
-	cred, err := b.licensedCred()
+	cred, err := b.workspaceCred(workspace)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (b Bitbucket) Merge(ctx context.Context, workspace, repo string, id int, dr
 	if dryRun {
 		return b.Get(ctx, workspace, repo, id)
 	}
-	cred, err := b.licensedCred()
+	cred, err := b.workspaceCred(workspace)
 	if err != nil {
 		return domain.PullRequest{}, err
 	}
@@ -139,7 +139,7 @@ func (b Bitbucket) Merge(ctx context.Context, workspace, repo string, id int, dr
 }
 
 func (b Bitbucket) Diff(ctx context.Context, workspace, repo string, id int) (domain.PullRequestDiff, error) {
-	cred, err := b.licensedCred()
+	cred, err := b.workspaceCred(workspace)
 	if err != nil {
 		return domain.PullRequestDiff{}, err
 	}
