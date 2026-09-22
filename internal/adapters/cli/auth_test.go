@@ -145,6 +145,27 @@ func TestAuthLogoutRejectsEmptyTargetWithoutClearingSession(t *testing.T) {
 	}
 }
 
+func TestAuthLogoutRejectsPositionalArgumentsWithoutClearingSession(t *testing.T) {
+	for _, positional := range [][]string{{"workspace"}, {""}, {"--", "workspace"}} {
+		d, _, errw := testDeps()
+		workspace := domain.DefaultWorkspace()
+		if err := auth.PutSite(d.Store, "sesamidevel", auth.Cred{Email: "site@example.com", Token: "site-secret"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := auth.PutWorkspace(d.Store, workspace, auth.Cred{Email: "bitbucket@example.com", Token: "workspace-secret"}); err != nil {
+			t.Fatal(err)
+		}
+		args := append([]string{"atlas", "auth", "logout"}, positional...)
+		if code := Run(args, d); code != domain.ExitUsage {
+			t.Fatalf("%q: code=%d stderr=%s", positional, code, errw.String())
+		}
+		st, err := auth.Status(d.Store)
+		if err != nil || !st.SignedIn || !sessionSiteUsable(st.Sites, "sesamidevel") || !sessionWorkspaceUsable(st.Workspaces, workspace) {
+			t.Fatalf("%q cleared credentials: status=%+v err=%v", positional, st, err)
+		}
+	}
+}
+
 func sessionSiteUsable(sites []domain.SiteStatus, alias string) bool {
 	for _, site := range sites {
 		if site.Alias == alias {

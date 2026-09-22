@@ -55,6 +55,9 @@ func (f *FileStore) Put(blob Blob) error {
 }
 
 func (f *FileStore) Delete() error {
-	_ = os.Remove(f.Path)
-	return nil
+	err := os.Remove(f.Path)
+	if err == nil || os.IsNotExist(err) {
+		return nil
+	}
+	return domain.Auth("could not clear session")
 }

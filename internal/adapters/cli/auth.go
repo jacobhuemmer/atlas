@@ -31,6 +31,9 @@ func runAuth(args []string, d Deps, format string, verbose bool) int {
 		if err := parseMixed(fsset, args[1:]); err != nil {
 			return fail(d, domain.Usage(err.Error()))
 		}
+		if fsset.NArg() != 0 {
+			return fail(d, domain.Usage("auth logout does not accept positional arguments"))
+		}
 		siteSet := flagWasSet(fsset, "site")
 		workspaceSet := flagWasSet(fsset, "workspace")
 		if siteSet && workspaceSet {

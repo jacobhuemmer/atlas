@@ -90,6 +90,22 @@ func TestFallbackPutToPrimaryDeletesStaleSecondary(t *testing.T) {
 	}
 }
 
+func TestFallbackPutReportsStaleSecondaryCleanupFailure(t *testing.T) {
+	primary := &stubStore{}
+	path := filepath.Join(t.TempDir(), "session.json")
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(path, "child"), []byte("stale"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f := &Fallback{Primary: primary, Secondary: &FileStore{Path: path}}
+	err := f.Put(Blob{Sites: map[string]auth.Cred{"dev": {Email: "site@example.com", Token: "site-token"}}})
+	if err == nil {
+		t.Fatal("expected stale fallback cleanup error")
+	}
+}
+
 func TestFallbackDeleteClearsBoth(t *testing.T) {
 	primary := &stubStore{blob: Blob{Sites: map[string]auth.Cred{"sesamidevel": {Email: "k"}}}, ok: true}
 	path := filepath.Join(t.TempDir(), "session.json")

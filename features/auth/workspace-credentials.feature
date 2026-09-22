@@ -49,6 +49,15 @@ Feature: Workspace-scoped Bitbucket credentials
       | site      |
       | workspace |
 
+  @authn @security @regression
+  Scenario: An unexpected logout argument cannot clear the session
+    Given the operator has a usable cloud-site credential
+    And the operator has a usable Bitbucket workspace credential
+    When the operator requests logout with an unexpected positional argument
+    Then the command fails with a usage error
+    And the cloud site remains usable
+    And the Bitbucket workspace remains usable
+
   @authn @security @application
   Scenario: A workspace-only session is usable through MCP status
     Given the operator has a usable Bitbucket workspace credential and no cloud-site credential
