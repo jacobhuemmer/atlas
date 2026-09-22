@@ -66,3 +66,33 @@ func TestMCPStatusSignedOutAndIn(t *testing.T) {
 		t.Fatal(st)
 	}
 }
+
+func TestMCPStatusWorkspaceOnlySessionIsUsableAndTokenFree(t *testing.T) {
+	d, _, _ := testDeps()
+	if err := auth.PutWorkspace(d.Store, "workspace", auth.Cred{Email: "bitbucket@example.com", Token: "workspace-secret"}); err != nil {
+		t.Fatal(err)
+	}
+	cs := connectMCP(t, d)
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "atlas_status"})
+	if err != nil || res.IsError {
+		t.Fatal(err, toolText(t, res))
+	}
+	text := toolText(t, res)
+	if strings.Contains(text, "bitbucket@example.com") || strings.Contains(text, "workspace-secret") || strings.Contains(strings.ToLower(text), `"token"`) {
+		t.Fatal(text)
+	}
+	var st struct {
+		SignedIn      bool `json:"signed_in"`
+		SessionUsable bool `json:"session_usable"`
+		Workspaces    []struct {
+			Slug   string `json:"slug"`
+			Usable bool   `json:"usable"`
+		} `json:"workspaces"`
+	}
+	if err := json.Unmarshal([]byte(text), &st); err != nil {
+		t.Fatal(err, text)
+	}
+	if !st.SignedIn || !st.SessionUsable || !usableWorkspace(st.Workspaces, "workspace") {
+		t.Fatalf("unexpected status: %+v", st)
+	}
+}

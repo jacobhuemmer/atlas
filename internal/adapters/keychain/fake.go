@@ -37,12 +37,17 @@ func (f *Fake) Delete() error {
 
 func copyBlob(b Blob) Blob {
 	out := Blob{}
-	if b.Sites == nil {
-		return out
+	if b.Sites != nil {
+		out.Sites = make(map[string]auth.Cred, len(b.Sites))
+		for k, v := range b.Sites {
+			out.Sites[k] = v
+		}
 	}
-	out.Sites = make(map[string]auth.Cred, len(b.Sites))
-	for k, v := range b.Sites {
-		out.Sites[k] = v
+	if b.Workspaces != nil {
+		out.Workspaces = make(map[string]auth.Cred, len(b.Workspaces))
+		for k, v := range b.Workspaces {
+			out.Workspaces[k] = v
+		}
 	}
 	return out
 }

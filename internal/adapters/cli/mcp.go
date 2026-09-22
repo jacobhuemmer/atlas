@@ -66,7 +66,7 @@ func NewMCPServer(d Deps) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "atlas", Version: "1.0.0"}, nil)
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "atlas_status",
-		Description: "Signed-in, session usable, per-site role. No tokens. Does not open a browser.",
+		Description: "Signed-in, session usable, per-site role and per-workspace usability. No tokens. Does not open a browser.",
 	}, func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {
 		return callCLI(d, []string{"atlas", "auth", "status"}), nil, nil
 	})

@@ -65,6 +65,88 @@ func TestAuthLoginFromOpIsUsage(t *testing.T) {
 	}
 }
 
+func TestAuthWorkspaceLoginStatusAndTargetedLogout(t *testing.T) {
+	d, out, errw := testDeps()
+	if code := Run([]string{"atlas", "auth", "login", "--site", "sesamidevel", "--email", "site@example.com", "--token", "site-secret"}, d); code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	out.Reset()
+	errw.Reset()
+	if code := Run([]string{"atlas", "auth", "login", "--workspace", domain.DefaultWorkspace(), "--email", "bitbucket@example.com", "--token", "workspace-secret"}, d); code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	if strings.Contains(out.String(), "site-secret") || strings.Contains(out.String(), "workspace-secret") {
+		t.Fatal("credential leaked", out.String())
+	}
+
+	var st struct {
+		SignedIn      bool `json:"signed_in"`
+		SessionUsable bool `json:"session_usable"`
+		Sites         []struct {
+			Alias  string `json:"alias"`
+			Usable bool   `json:"usable"`
+		} `json:"sites"`
+		Workspaces []struct {
+			Slug   string `json:"slug"`
+			Usable bool   `json:"usable"`
+		} `json:"workspaces"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &st); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if !st.SignedIn || !st.SessionUsable || !usableSite(st.Sites, "sesamidevel") || !usableWorkspace(st.Workspaces, domain.DefaultWorkspace()) {
+		t.Fatalf("unexpected status: %+v", st)
+	}
+
+	out.Reset()
+	errw.Reset()
+	if code := Run([]string{"atlas", "auth", "logout", "--workspace", domain.DefaultWorkspace()}, d); code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	if err := json.Unmarshal(out.Bytes(), &st); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if !usableSite(st.Sites, "sesamidevel") || usableWorkspace(st.Workspaces, domain.DefaultWorkspace()) {
+		t.Fatalf("targeted logout removed the wrong credential: %+v", st)
+	}
+}
+
+func TestAuthLoginAndLogoutRejectSiteWorkspaceConflict(t *testing.T) {
+	for _, args := range [][]string{
+		{"atlas", "auth", "login", "--site", "sesamidevel", "--workspace", domain.DefaultWorkspace(), "--email", "a@b.c", "--token", "secret"},
+		{"atlas", "auth", "logout", "--site", "sesamidevel", "--workspace", domain.DefaultWorkspace()},
+	} {
+		d, _, errw := testDeps()
+		if code := Run(args, d); code != domain.ExitUsage {
+			t.Fatalf("%v: code=%d stderr=%s", args, code, errw.String())
+		}
+	}
+}
+
+func usableSite(sites []struct {
+	Alias  string `json:"alias"`
+	Usable bool   `json:"usable"`
+}, alias string) bool {
+	for _, site := range sites {
+		if site.Alias == alias {
+			return site.Usable
+		}
+	}
+	return false
+}
+
+func usableWorkspace(workspaces []struct {
+	Slug   string `json:"slug"`
+	Usable bool   `json:"usable"`
+}, slug string) bool {
+	for _, workspace := range workspaces {
+		if workspace.Slug == slug {
+			return workspace.Usable
+		}
+	}
+	return false
+}
+
 func TestSiteListAndResolve(t *testing.T) {
 	d, out, errw := testDeps()
 	if c := Run([]string{"atlas", "site", "list"}, d); c != 0 {

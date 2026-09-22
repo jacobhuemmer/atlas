@@ -10,7 +10,7 @@ Transport: stdio only. No SSE, no Streamable HTTP.
 
 | Name | Description (MUST convey) | Session |
 | --- | --- | --- |
-| `atlas_status` | Signed-in, session usable, per-site role. No tokens. Does not open a browser. | Optional |
+| `atlas_status` | Signed-in, session usable, per-site role, and per-workspace usability. No tokens. Does not open a browser. | Optional |
 | `atlas_help` | CLI help for a namespace or verb, or a recipe `topic` (`jira-search`, `confluence-write`, `pr-review`, `jsm-customer`, `atlas`). No session required. | None |
 | `atlas_run` | Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless `write_opt_in` is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer. Skill: `atlas://skill`. | Required for workloads |
 
@@ -20,7 +20,7 @@ Unknown tool name → MCP protocol error. Do not add `atlas_login`, or per-verb 
 
 **Input**: empty object.
 
-**Output**: same JSON as `atlas auth status`. Keys: `signed_in`, `session_usable`, `sites[]` with `alias`, `hostname`, `role` (`licensed` | `jsm_customer`), `usable`. MUST NOT include token fields.
+**Output**: same JSON as `atlas auth status`. Keys: `signed_in`, `session_usable`, `sites[]` with `alias`, `hostname`, `role` (`licensed` | `jsm_customer`), `usable`, and `workspaces[]` with `slug`, `usable`. MUST NOT include email or token fields. A usable credential in either collection makes the session signed in and usable.
 
 Signed out → success, `signed_in` false, no interactive login.
 
