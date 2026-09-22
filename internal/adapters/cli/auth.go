@@ -2,6 +2,7 @@ package cli
 
 import (
 	"flag"
+	"strings"
 
 	"github.com/masonhuemmer/atlas/internal/app/auth"
 	"github.com/masonhuemmer/atlas/internal/domain"
@@ -30,18 +31,26 @@ func runAuth(args []string, d Deps, format string, verbose bool) int {
 		if err := parseMixed(fsset, args[1:]); err != nil {
 			return fail(d, domain.Usage(err.Error()))
 		}
-		if *siteFlag != "" && *workspace != "" {
+		siteSet := flagWasSet(fsset, "site")
+		workspaceSet := flagWasSet(fsset, "workspace")
+		if siteSet && workspaceSet {
 			return fail(d, domain.Usage("use only one of --site or --workspace"))
 		}
 		var err error
 		switch {
-		case *siteFlag != "":
+		case siteSet:
+			if strings.TrimSpace(*siteFlag) == "" {
+				return fail(d, domain.Usage("--site requires a value"))
+			}
 			site, lerr := domain.Lookup(*siteFlag)
 			if lerr != nil {
 				return fail(d, lerr)
 			}
 			err = auth.LogoutSite(d.Store, site.Alias)
-		case *workspace != "":
+		case workspaceSet:
+			if strings.TrimSpace(*workspace) == "" {
+				return fail(d, domain.Usage("--workspace requires a value"))
+			}
 			err = auth.LogoutWorkspace(d.Store, *workspace)
 		default:
 			err = auth.Logout(d.Store)
@@ -68,17 +77,25 @@ func runAuth(args []string, d Deps, format string, verbose bool) int {
 		if *fromOp {
 			return fail(d, domain.Usage("auth login --from-op is a human terminal command").WithHint("run atlas auth login --site ALIAS or --workspace WORKSPACE with --email EMAIL --token TOKEN in a terminal; the agent path never calls op"))
 		}
-		if *siteFlag != "" && *workspace != "" {
+		siteSet := flagWasSet(fsset, "site")
+		workspaceSet := flagWasSet(fsset, "workspace")
+		if siteSet && workspaceSet {
 			return fail(d, domain.Usage("use only one of --site or --workspace"))
 		}
-		if *siteFlag == "" && *workspace == "" {
+		if !siteSet && !workspaceSet {
 			return fail(d, domain.Usage("login requires --site or --workspace").WithHint("atlas auth login --site ALIAS --email EMAIL --token TOKEN"))
 		}
 		var st domain.Session
 		var err error
-		if *workspace != "" {
+		if workspaceSet {
+			if strings.TrimSpace(*workspace) == "" {
+				return fail(d, domain.Usage("--workspace requires a value"))
+			}
 			st, err = auth.LoginWorkspace(ctx(), d.Store, d.Login, *workspace, *email, *token)
 		} else {
+			if strings.TrimSpace(*siteFlag) == "" {
+				return fail(d, domain.Usage("--site requires a value"))
+			}
 			site, lerr := domain.Lookup(*siteFlag)
 			if lerr != nil {
 				return fail(d, lerr)
@@ -105,4 +122,14 @@ func statusOut(st domain.Session) map[string]any {
 
 func fmtVerbose(d Deps, s string) {
 	_, _ = d.Stderr.Write([]byte(redact(s) + "\n"))
+}
+
+func flagWasSet(fsset *flag.FlagSet, name string) bool {
+	set := false
+	fsset.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			set = true
+		}
+	})
+	return set
 }

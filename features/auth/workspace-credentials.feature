@@ -35,6 +35,20 @@ Feature: Workspace-scoped Bitbucket credentials
     Then the cloud site remains usable
     And the Bitbucket workspace is not usable
 
+  @authn @security @regression
+  Scenario Outline: An empty targeted logout selector cannot clear the session
+    Given the operator has a usable cloud-site credential
+    And the operator has a usable Bitbucket workspace credential
+    When the operator requests logout with an empty <selector> selector
+    Then the command fails with a usage error
+    And the cloud site remains usable
+    And the Bitbucket workspace remains usable
+
+    Examples:
+      | selector  |
+      | site      |
+      | workspace |
+
   @authn @security @application
   Scenario: A workspace-only session is usable through MCP status
     Given the operator has a usable Bitbucket workspace credential and no cloud-site credential

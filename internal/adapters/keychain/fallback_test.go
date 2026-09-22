@@ -46,6 +46,50 @@ func TestFallbackPutUsesFileWhenKeychainTooBig(t *testing.T) {
 	}
 }
 
+func TestFallbackPutToFileDeletesStalePrimary(t *testing.T) {
+	primary := &stubStore{
+		blob:   Blob{Sites: map[string]auth.Cred{"dev": {Email: "old@example.com", Token: "old-token"}}},
+		ok:     true,
+		putErr: errors.New("data passed to Set was too big"),
+	}
+	path := filepath.Join(t.TempDir(), "session.json")
+	f := &Fallback{Primary: primary, Secondary: &FileStore{Path: path}}
+	want := Blob{
+		Sites:      map[string]auth.Cred{"dev": {Email: "site@example.com", Token: "site-token"}},
+		Workspaces: map[string]auth.Cred{"workspace": {Email: "bitbucket@example.com", Token: strings.Repeat("b", 8000)}},
+	}
+	if err := f.Put(want); err != nil {
+		t.Fatal(err)
+	}
+	if !primary.deleted {
+		t.Fatal("stale primary was not deleted")
+	}
+	got, ok, err := f.Get()
+	if err != nil || !ok || got.Workspaces["workspace"].Email != "bitbucket@example.com" {
+		t.Fatalf("got=%+v ok=%v err=%v", got, ok, err)
+	}
+}
+
+func TestFallbackPutToPrimaryDeletesStaleSecondary(t *testing.T) {
+	primary := &stubStore{}
+	path := filepath.Join(t.TempDir(), "session.json")
+	secondary := &FileStore{Path: path}
+	if err := secondary.Put(Blob{Workspaces: map[string]auth.Cred{"old": {Email: "old@example.com", Token: "old-token"}}}); err != nil {
+		t.Fatal(err)
+	}
+	f := &Fallback{Primary: primary, Secondary: secondary}
+	if err := f.Put(Blob{Sites: map[string]auth.Cred{"dev": {Email: "site@example.com", Token: "site-token"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("stale secondary still present: %v", err)
+	}
+	got, ok, err := f.Get()
+	if err != nil || !ok || got.Sites["dev"].Email != "site@example.com" || len(got.Workspaces) != 0 {
+		t.Fatalf("got=%+v ok=%v err=%v", got, ok, err)
+	}
+}
+
 func TestFallbackDeleteClearsBoth(t *testing.T) {
 	primary := &stubStore{blob: Blob{Sites: map[string]auth.Cred{"sesamidevel": {Email: "k"}}}, ok: true}
 	path := filepath.Join(t.TempDir(), "session.json")

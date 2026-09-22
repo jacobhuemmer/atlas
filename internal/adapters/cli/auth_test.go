@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/masonhuemmer/atlas/internal/app/auth"
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
@@ -121,6 +122,45 @@ func TestAuthLoginAndLogoutRejectSiteWorkspaceConflict(t *testing.T) {
 			t.Fatalf("%v: code=%d stderr=%s", args, code, errw.String())
 		}
 	}
+}
+
+func TestAuthLogoutRejectsEmptyTargetWithoutClearingSession(t *testing.T) {
+	d, _, errw := testDeps()
+	workspace := domain.DefaultWorkspace()
+	if err := auth.PutSite(d.Store, "sesamidevel", auth.Cred{Email: "site@example.com", Token: "site-secret"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := auth.PutWorkspace(d.Store, workspace, auth.Cred{Email: "bitbucket@example.com", Token: "workspace-secret"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, arg := range []string{"--site=", "--workspace="} {
+		errw.Reset()
+		if code := Run([]string{"atlas", "auth", "logout", arg}, d); code != domain.ExitUsage {
+			t.Fatalf("%s: code=%d stderr=%s", arg, code, errw.String())
+		}
+		st, err := auth.Status(d.Store)
+		if err != nil || !st.SignedIn || !sessionSiteUsable(st.Sites, "sesamidevel") || !sessionWorkspaceUsable(st.Workspaces, workspace) {
+			t.Fatalf("%s cleared credentials: status=%+v err=%v", arg, st, err)
+		}
+	}
+}
+
+func sessionSiteUsable(sites []domain.SiteStatus, alias string) bool {
+	for _, site := range sites {
+		if site.Alias == alias {
+			return site.Usable
+		}
+	}
+	return false
+}
+
+func sessionWorkspaceUsable(workspaces []domain.WorkspaceStatus, slug string) bool {
+	for _, workspace := range workspaces {
+		if workspace.Slug == slug {
+			return workspace.Usable
+		}
+	}
+	return false
 }
 
 func usableSite(sites []struct {
