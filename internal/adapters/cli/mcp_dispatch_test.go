@@ -42,7 +42,7 @@ func TestWriteGateInjectsDryRun(t *testing.T) {
 		}
 		found := false
 		for _, a := range args {
-			if a == "--dry-run" {
+			if a == "--dry-run=true" {
 				found = true
 			}
 		}
@@ -54,7 +54,7 @@ func TestWriteGateInjectsDryRun(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, a := range args {
-			if a == "--dry-run" {
+			if a == "--dry-run=true" {
 				t.Fatal(args)
 			}
 		}
@@ -67,7 +67,7 @@ func TestWriteGateInjectsDryRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, a := range args {
-		if a == "--dry-run" {
+		if a == "--dry-run=true" {
 			t.Fatal(args)
 		}
 	}

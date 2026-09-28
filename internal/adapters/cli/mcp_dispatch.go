@@ -35,14 +35,15 @@ func FlagMapToArgs(ns, verb string, pos []string, flags map[string]any) ([]strin
 		if !flagName.MatchString(k) {
 			return nil, domain.Usagef("unknown flag %q", k)
 		}
-		// One --name=value token per value: a value such as "--json" or "--"
-		// can then neither be peeled as a global flag nor swallow the next flag.
+		// One --name=value token per value, booleans included: a value such as
+		// "--json" cannot be peeled as a global flag, and no bare --name can
+		// take the next token (the injected --dry-run) as its value.
 		name := "--" + k
 		switch v := flags[k].(type) {
 		case nil:
 		case bool:
 			if v {
-				out = append(out, name)
+				out = append(out, name+"=true")
 			}
 		case string:
 			out = append(out, name+"="+v)

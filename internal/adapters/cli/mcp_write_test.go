@@ -316,3 +316,22 @@ func TestMCPWriteGateResistsGlobalFlagValues(t *testing.T) {
 		}
 	}
 }
+
+// A boolean true on a string flag must not leave a bare --name that takes
+// the injected --dry-run as its value.
+func TestMCPWriteGateResistsBareBoolOnStringFlag(t *testing.T) {
+	d, _, _ := testDeps()
+	mem := d.Jira.(atlassian.JiraAPI).Memory
+	before := mem.IssueCount()
+	cs := connectMCP(t, d)
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "atlas_write", Arguments: writeIn{
+		Namespace: "jira", Verb: "create",
+		Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "injected", "description": true},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mem.IssueCount() != before {
+		t.Fatalf("created an issue without write_opt_in: %s", toolText(t, res))
+	}
+}
