@@ -295,3 +295,24 @@ func TestMCPWriteGateResistsInjection(t *testing.T) {
 		}
 	}
 }
+
+// Global flags are peeled from anywhere in argv, so a flag value equal to
+// one must not shift the next token into the value and swallow --dry-run.
+func TestMCPWriteGateResistsGlobalFlagValues(t *testing.T) {
+	for _, v := range []string{"--json", "--human", "--verbose", "--debug", "--help", "-h", "--", "--dry-run=false"} {
+		d, _, _ := testDeps()
+		mem := d.Jira.(atlassian.JiraAPI).Memory
+		before := mem.IssueCount()
+		cs := connectMCP(t, d)
+		res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "atlas_write", Arguments: writeIn{
+			Namespace: "jira", Verb: "create",
+			Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "injected", "description": v},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if mem.IssueCount() != before {
+			t.Fatalf("value %q created an issue without write_opt_in: %s", v, toolText(t, res))
+		}
+	}
+}

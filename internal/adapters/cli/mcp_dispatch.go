@@ -35,6 +35,8 @@ func FlagMapToArgs(ns, verb string, pos []string, flags map[string]any) ([]strin
 		if !flagName.MatchString(k) {
 			return nil, domain.Usagef("unknown flag %q", k)
 		}
+		// One --name=value token per value: a value such as "--json" or "--"
+		// can then neither be peeled as a global flag nor swallow the next flag.
 		name := "--" + k
 		switch v := flags[k].(type) {
 		case nil:
@@ -43,18 +45,18 @@ func FlagMapToArgs(ns, verb string, pos []string, flags map[string]any) ([]strin
 				out = append(out, name)
 			}
 		case string:
-			out = append(out, name, v)
+			out = append(out, name+"="+v)
 		case float64:
 			if v == float64(int64(v)) {
-				out = append(out, name, strconv.FormatInt(int64(v), 10))
+				out = append(out, name+"="+strconv.FormatInt(int64(v), 10))
 			} else {
-				out = append(out, name, strconv.FormatFloat(v, 'f', -1, 64))
+				out = append(out, name+"="+strconv.FormatFloat(v, 'f', -1, 64))
 			}
 		case json.Number:
-			out = append(out, name, v.String())
+			out = append(out, name+"="+v.String())
 		case []string:
 			for _, s := range v {
-				out = append(out, name, s)
+				out = append(out, name+"="+s)
 			}
 		case []any:
 			for _, e := range v {
@@ -62,7 +64,7 @@ func FlagMapToArgs(ns, verb string, pos []string, flags map[string]any) ([]strin
 				if !ok {
 					return nil, domain.Usagef("flag %s values must be strings", k)
 				}
-				out = append(out, name, s)
+				out = append(out, name+"="+s)
 			}
 		default:
 			return nil, domain.Usagef("unsupported flag type for %s", k)

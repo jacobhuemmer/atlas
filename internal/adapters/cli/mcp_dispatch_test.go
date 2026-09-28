@@ -10,7 +10,7 @@ func TestFlagMapToArgs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"atlas", "jira", "search", "--jql", "project = CAB", "--site", "sesami-io"}
+	want := []string{"atlas", "jira", "search", "--jql=project = CAB", "--site=sesami-io"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("%v != %v", got, want)
 	}
