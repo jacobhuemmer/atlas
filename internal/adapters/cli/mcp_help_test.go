@@ -106,7 +106,43 @@ func TestPromptsListFourRecipes(t *testing.T) {
 		t.Fatalf("count %d", len(pl.Prompts))
 	}
 	tl, err := cs.ListTools(context.Background(), nil)
-	if err != nil || len(tl.Tools) != 3 {
+	if err != nil || len(tl.Tools) != 4 {
 		t.Fatal(err, len(tl.Tools))
+	}
+}
+
+// atlas_help is marked read-only: help for any verb, write or auth, must
+// print help and never run the verb.
+func TestMCPHelpNeverRunsVerb(t *testing.T) {
+	d, _, _ := testDeps()
+	cs := connectMCP(t, d)
+	verbs := map[string][]string{
+		"auth":       {"status", "login", "logout"},
+		"site":       {"list", "resolve"},
+		"jira":       {"get", "search", "create", "edit", "comment", "transition", "link"},
+		"confluence": {"get", "search", "create", "update"},
+		"pr":         {"get", "list", "create", "comment", "merge", "diff"},
+		"jsm":        {"desks", "types", "list", "get", "create", "comment", "transition"},
+	}
+	var pairs [][2]string
+	for ns, vs := range verbs {
+		for _, v := range vs {
+			pairs = append(pairs, [2]string{ns, v})
+		}
+	}
+	for _, p := range pairs {
+		res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+			Name: "atlas_help", Arguments: helpIn{Namespace: p[0], Verb: p[1]},
+		})
+		if err != nil {
+			t.Fatal(p, err)
+		}
+		text := toolText(t, res)
+		if res.IsError {
+			t.Fatalf("%s %s: %s", p[0], p[1], text)
+		}
+		if !strings.Contains(text, "Verbs:") {
+			t.Fatalf("%s %s did not return help: %s", p[0], p[1], text)
+		}
 	}
 }

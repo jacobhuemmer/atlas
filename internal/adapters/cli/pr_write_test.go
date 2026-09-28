@@ -74,7 +74,7 @@ func TestMCPPRMergeWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "pr", Verb: "merge",
 			Flags: map[string]any{"repo": "atlas", "id": float64(1)},
 		},
@@ -101,7 +101,7 @@ func TestMCPPRMergeWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "pr", Verb: "merge", WriteOptIn: true,
 			Flags: map[string]any{"repo": "atlas", "id": float64(1)},
 		},

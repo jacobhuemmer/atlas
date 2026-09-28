@@ -54,7 +54,7 @@ func TestMCPSkillResource(t *testing.T) {
 	if resourceBody != wantBody || helpBody != wantBody {
 		t.Fatal("skill resource and help topic differ from embedded markdown")
 	}
-	for _, want := range []string{"atlas_run", "write_opt_in"} {
+	for _, want := range []string{"atlas_read", "atlas_write", "write_opt_in"} {
 		if !strings.Contains(resourceBody, want) {
 			t.Fatalf("skill body missing %q", want)
 		}
@@ -77,7 +77,7 @@ func TestMCPSkillResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 3 {
+	if len(tools.Tools) != 4 {
 		t.Fatalf("tool count %d", len(tools.Tools))
 	}
 }

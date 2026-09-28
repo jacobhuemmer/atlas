@@ -29,9 +29,9 @@ status: signed_in, session_usable, sites[], and workspaces[]. No emails or token
 login:  --site ALIAS --email EMAIL --token TOKEN
         --workspace WORKSPACE --email EMAIL --token TOKEN
         --site and --workspace are mutually exclusive.
-        --from-op is a human terminal flag only (not via atlas_run).
+        --from-op is a human terminal flag only (not via MCP).
 logout: optional --site ALIAS or --workspace WORKSPACE (all credentials if omitted)
-Login and logout stay terminal-only. Do not call them through atlas_run.
+Login and logout stay terminal-only. Do not call them through MCP.
 Output: JSON (default) or --human.
 `
 

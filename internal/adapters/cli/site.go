@@ -3,7 +3,7 @@ package cli
 import "github.com/masonhuemmer/atlas/internal/domain"
 
 func runSite(args []string, d Deps, format string) int {
-	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
+	if len(args) == 0 || args[0] == "help" || hasHelp(args) {
 		return writeHelp(d.Stdout, siteHelp)
 	}
 	verb := args[0]

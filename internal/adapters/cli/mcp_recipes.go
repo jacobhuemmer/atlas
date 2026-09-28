@@ -7,7 +7,7 @@ Resolve one site, then search or get. Never dual-query clouds.
 
   atlas jira get KEY-1
   atlas jira search --jql 'project = KEY'
-  atlas_run namespace=jira verb=get args=["KEY-1"]
+  atlas_read namespace=jira verb=get args=["KEY-1"]
 
 Project keys map to a site in config. Combined JQL that names two sites is usage.
 A jsm_customer site is not Jira search: use atlas jsm.
@@ -21,7 +21,7 @@ Space keys map to a site in config. No delete verb.
 
   atlas confluence search --cql 'space = KEY AND type = page'
   atlas confluence create --space KEY --title '…' --body '…' --dry-run
-  atlas_run namespace=confluence verb=create flags space=KEY title=… body=…
+  atlas_write namespace=confluence verb=create flags space=KEY title=… body=…
 
 MCP writes dry-run unless write_opt_in is true.
 `
@@ -33,7 +33,7 @@ Bitbucket Cloud REST. Workspace from config defaults.workspace. Authentication u
   atlas pr get --repo SLUG --id 1
   atlas pr comment --repo SLUG --id 1 --body '…' --dry-run
   atlas pr merge --repo SLUG --id 1 --dry-run
-  atlas_run namespace=pr verb=get flags repo=SLUG id=1
+  atlas_read namespace=pr verb=get flags repo=SLUG id=1
 
 Merge is a write. Reviewer updates are REST fields.
 Missing workspace auth requires atlas auth login --workspace WORKSPACE in a terminal.
@@ -46,7 +46,7 @@ JSM customer portal REST. Never Jira search on a jsm_customer site.
   atlas jsm desks --site ALIAS
   atlas jsm list --status open
   atlas jsm comment KEY-1 --body '…' --dry-run
-  atlas_run namespace=jsm verb=desks flags site=ALIAS
+  atlas_read namespace=jsm verb=desks flags site=ALIAS
 
 Comments are public: true only. Credentials are the customer keyring slot.
 `

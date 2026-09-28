@@ -9,7 +9,7 @@ import (
 )
 
 func runAuth(args []string, d Deps, format string, verbose bool) int {
-	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
+	if len(args) == 0 || args[0] == "help" || hasHelp(args) {
 		return writeHelp(d.Stdout, authHelp)
 	}
 	verb := args[0]

@@ -18,7 +18,7 @@ func TestMCPJiraCreateWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jira", Verb: "create",
 			Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "gated"},
 		},
@@ -44,7 +44,7 @@ func TestMCPJiraCreateWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jira", Verb: "create", WriteOptIn: true,
 			Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "gated"},
 		},
@@ -79,7 +79,7 @@ func TestMCPJSMCreateWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "create",
 			Flags: map[string]any{"desk": "3", "type": "40", "summary": "gated jsm"},
 		},
@@ -102,7 +102,7 @@ func TestMCPJSMCreateWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "create", WriteOptIn: true,
 			Flags: map[string]any{"desk": "3", "type": "40", "summary": "gated jsm"},
 		},
@@ -128,7 +128,7 @@ func TestMCPJSMCommentWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "comment",
 			Args:  []string{"EOS-1"},
 			Flags: map[string]any{"body": "gated comment"},
@@ -153,7 +153,7 @@ func TestMCPJSMCommentWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "comment", WriteOptIn: true,
 			Args:  []string{"EOS-1"},
 			Flags: map[string]any{"body": "gated comment"},
@@ -177,7 +177,7 @@ func TestMCPJSMTransitionWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "transition",
 			Args:  []string{"EOS-1"},
 			Flags: map[string]any{"id": "21"},
@@ -202,7 +202,7 @@ func TestMCPJSMTransitionWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "transition", WriteOptIn: true,
 			Args:  []string{"EOS-1"},
 			Flags: map[string]any{"id": "21"},
@@ -226,7 +226,7 @@ func TestMCPJiraLinkWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jira", Verb: "link",
 			Args: []string{"SDO-1", "SDP-2"},
 		},
@@ -256,7 +256,7 @@ func TestMCPJiraLinkWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jira", Verb: "link", WriteOptIn: true,
 			Args: []string{"SDO-1", "SDP-2"},
 		},
@@ -270,5 +270,68 @@ func TestMCPJiraLinkWriteGate(t *testing.T) {
 	}
 	if !hasRelatesLink(got, "SDO-1", "SDP-2") {
 		t.Fatalf("%+v", got.Links)
+	}
+}
+
+// Positional args and flag keys are caller-controlled; neither may carry a
+// flag that ends parsing early or overrides the injected --dry-run.
+func TestMCPWriteGateResistsInjection(t *testing.T) {
+	d, _, _ := testDeps()
+	mem := d.Jira.(atlassian.JiraAPI).Memory
+	before := mem.IssueCount()
+	cs := connectMCP(t, d)
+	for _, in := range []writeIn{
+		{Namespace: "jira", Verb: "create", Args: []string{"--project=SDO", "--type=Task", "--summary=injected", "--"}},
+		{Namespace: "jira", Verb: "create", Args: []string{"--dry-run=false"}, Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "injected"}},
+		{Namespace: "jira", Verb: "create", Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "injected", "dry-run=false": true}},
+	} {
+		res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "atlas_write", Arguments: in})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertClass(t, res, "usage")
+		if mem.IssueCount() != before {
+			t.Fatalf("issue created without write_opt_in: %+v", in)
+		}
+	}
+}
+
+// Global flags are peeled from anywhere in argv, so a flag value equal to
+// one must not shift the next token into the value and swallow --dry-run.
+func TestMCPWriteGateResistsGlobalFlagValues(t *testing.T) {
+	for _, v := range []string{"--json", "--human", "--verbose", "--debug", "--help", "-h", "--", "--dry-run=false"} {
+		d, _, _ := testDeps()
+		mem := d.Jira.(atlassian.JiraAPI).Memory
+		before := mem.IssueCount()
+		cs := connectMCP(t, d)
+		res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "atlas_write", Arguments: writeIn{
+			Namespace: "jira", Verb: "create",
+			Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "injected", "description": v},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if mem.IssueCount() != before {
+			t.Fatalf("value %q created an issue without write_opt_in: %s", v, toolText(t, res))
+		}
+	}
+}
+
+// A boolean true on a string flag must not leave a bare --name that takes
+// the injected --dry-run as its value.
+func TestMCPWriteGateResistsBareBoolOnStringFlag(t *testing.T) {
+	d, _, _ := testDeps()
+	mem := d.Jira.(atlassian.JiraAPI).Memory
+	before := mem.IssueCount()
+	cs := connectMCP(t, d)
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "atlas_write", Arguments: writeIn{
+		Namespace: "jira", Verb: "create",
+		Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "injected", "description": true},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mem.IssueCount() != before {
+		t.Fatalf("created an issue without write_opt_in: %s", toolText(t, res))
 	}
 }
