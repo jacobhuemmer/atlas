@@ -20,10 +20,11 @@ const skillURI = "atlas://skill"
 const mcpHelp = `atlas mcp — stdio MCP for agents
 
 Verbs: serve
-serve: JSON-RPC on stdin/stdout. Tools: atlas_status, atlas_help, atlas_run.
+serve: JSON-RPC on stdin/stdout. Tools: atlas_status, atlas_help, atlas_read, atlas_write.
 Recipe topics: jira-search, confluence-write, pr-review, jsm-customer (also MCP prompts).
 Skill: atlas_help topic=atlas and MCP resource atlas://skill.
-Writes through atlas_run dry-run unless write_opt_in is true.
+atlas_read runs read verbs only and is marked read-only.
+atlas_write runs write verbs only; they dry-run unless write_opt_in is true.
 Do not use --human. Login stays atlas auth login in a terminal.
 No session required for --help.
 `
@@ -34,9 +35,16 @@ type helpIn struct {
 	Topic     string `json:"topic,omitempty" jsonschema:"recipe topic: jira-search, confluence-write, pr-review, jsm-customer, or atlas"`
 }
 
-type runIn struct {
+type readIn struct {
+	Namespace string         `json:"namespace,omitempty" jsonschema:"CLI namespace"`
+	Verb      string         `json:"verb,omitempty" jsonschema:"CLI read verb"`
+	Args      []string       `json:"args,omitempty" jsonschema:"positional ids after the verb"`
+	Flags     map[string]any `json:"flags,omitempty" jsonschema:"CLI long flag names without dashes"`
+}
+
+type writeIn struct {
 	Namespace  string         `json:"namespace,omitempty" jsonschema:"CLI namespace"`
-	Verb       string         `json:"verb,omitempty" jsonschema:"CLI verb"`
+	Verb       string         `json:"verb,omitempty" jsonschema:"CLI write verb"`
 	Args       []string       `json:"args,omitempty" jsonschema:"positional ids after the verb"`
 	Flags      map[string]any `json:"flags,omitempty" jsonschema:"CLI long flag names without dashes"`
 	WriteOptIn bool           `json:"write_opt_in,omitempty" jsonschema:"true to perform a real workload write"`
@@ -63,22 +71,37 @@ func ServeMCP(d Deps) error {
 }
 
 func NewMCPServer(d Deps) *mcp.Server {
+	yes, no := true, false
 	s := mcp.NewServer(&mcp.Implementation{Name: "atlas", Version: "1.0.0"}, nil)
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "atlas_status",
 		Description: "Signed-in, session usable, per-site role and per-workspace usability. No tokens. Does not open a browser.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
 	}, func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {
 		return callCLI(d, []string{"atlas", "auth", "status"}), nil, nil
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "atlas_help",
 		Description: "CLI help for a namespace or verb, or recipe topic jira-search, confluence-write, pr-review, jsm-customer, atlas. No session required.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: &no},
 	}, handleHelp)
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "atlas_run",
-		Description: "Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless write_opt_in is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer. Skill: atlas://skill.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in runIn) (*mcp.CallToolResult, any, error) {
-		args, err := buildRunArgs(in.Namespace, in.Verb, in.Args, in.Flags, in.WriteOptIn)
+		Name:        "atlas_read",
+		Description: "Run one read CLI namespace+verb (get, search, list, diff, desks, types, site list/resolve, auth status) with a flag map. Returns that command's JSON. Refuses write verbs; use atlas_write. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer. Skill: atlas://skill.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: &yes},
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in readIn) (*mcp.CallToolResult, any, error) {
+		args, err := buildReadArgs(in.Namespace, in.Verb, in.Args, in.Flags)
+		if err != nil {
+			return toolErr(err), nil, nil
+		}
+		return callCLI(d, args), nil, nil
+	})
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "atlas_write",
+		Description: "Run one write CLI namespace+verb (create, edit, comment, transition, link, update, merge) with a flag map. Returns a dry-run preview unless write_opt_in is true. Refuses read verbs; use atlas_read. Skill: atlas://skill.",
+		Annotations: &mcp.ToolAnnotations{DestructiveHint: &yes, OpenWorldHint: &yes},
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in writeIn) (*mcp.CallToolResult, any, error) {
+		args, err := buildWriteArgs(in.Namespace, in.Verb, in.Args, in.Flags, in.WriteOptIn)
 		if err != nil {
 			return toolErr(err), nil, nil
 		}
@@ -91,7 +114,7 @@ func NewMCPServer(d Deps) *mcp.Server {
 	s.AddResource(&mcp.Resource{
 		URI:         skillURI,
 		Name:        "atlas",
-		Description: "How to call atlas_status, atlas_help, and atlas_run on one configured cloud.",
+		Description: "How to call atlas_status, atlas_help, atlas_read, and atlas_write on one configured cloud.",
 		MIMEType:    "text/markdown",
 	}, readSkill)
 	return s

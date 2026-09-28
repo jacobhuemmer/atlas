@@ -92,7 +92,7 @@ func TestMCPConfluenceCreateWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "confluence", Verb: "create",
 			Flags: map[string]any{"space": "CCAB", "title": "gated", "body": "nope"},
 		},
@@ -115,7 +115,7 @@ func TestMCPConfluenceCreateWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "confluence", Verb: "create", WriteOptIn: true,
 			Flags: map[string]any{"space": "CCAB", "title": "gated", "body": "yes"},
 		},
@@ -149,7 +149,7 @@ func TestMCPConfluenceUpdateWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "confluence", Verb: "update",
 			Args:  []string{"100"},
 			Flags: map[string]any{"body": "should not persist", "site": "sesami-io"},
@@ -174,7 +174,7 @@ func TestMCPConfluenceUpdateWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "confluence", Verb: "update", WriteOptIn: true,
 			Args:  []string{"100"},
 			Flags: map[string]any{"body": "opted in", "site": "sesami-io"},

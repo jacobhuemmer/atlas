@@ -2,19 +2,22 @@
 
 Public interface: `atlas mcp serve` on stdio JSON-RPC. Human CLI remains `atlas <namespace> <verb> [flags]`. This catalog is the MCP door, not an Atlassian REST dump.
 
-`tools/list` MUST return exactly these three names.
+`tools/list` MUST return exactly these four names.
 
 Transport: stdio only. No SSE, no Streamable HTTP.
 
 ## Tools
 
-| Name | Description (MUST convey) | Session |
-| --- | --- | --- |
-| `atlas_status` | Signed-in, session usable, per-site role, and per-workspace usability. No tokens. Does not open a browser. | Optional |
-| `atlas_help` | CLI help for a namespace or verb, or a recipe `topic` (`jira-search`, `confluence-write`, `pr-review`, `jsm-customer`, `atlas`). No session required. | None |
-| `atlas_run` | Run one CLI namespace+verb with a flag map. Returns that command's JSON. Writes dry-run unless `write_opt_in` is true. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer. Skill: `atlas://skill`. | Required for workloads |
+| Name | Description (MUST convey) | Annotations | Session |
+| --- | --- | --- | --- |
+| `atlas_status` | Signed-in, session usable, per-site role, and per-workspace usability. No tokens. Does not open a browser. | `readOnlyHint` | Optional |
+| `atlas_help` | CLI help for a namespace or verb, or a recipe `topic` (`jira-search`, `confluence-write`, `pr-review`, `jsm-customer`, `atlas`). No session required. | `readOnlyHint`, `openWorldHint` false | None |
+| `atlas_read` | Run one read namespace+verb with a flag map. Returns that command's JSON. Refuses write verbs. Lookup examples: help topics jira-search, confluence-write, pr-review, jsm-customer. Skill: `atlas://skill`. | `readOnlyHint`, `openWorldHint` | Required for workloads |
+| `atlas_write` | Run one write namespace+verb with a flag map. Dry-run preview unless `write_opt_in` is true. Refuses read verbs. | `destructiveHint`, `openWorldHint` | Required for workloads |
 
-Unknown tool name → MCP protocol error. Do not add `atlas_login`, or per-verb tools.
+Unknown tool name (including the removed `atlas_run`) → MCP protocol error. Do not add `atlas_login`, or per-verb tools.
+
+Annotations let clients such as Codex run read-only tools without an approval prompt. `readOnlyHint` MUST be true only on tools that cannot change a workload.
 
 ## `atlas_status`
 
@@ -44,19 +47,23 @@ No args → overview: three tools, four recipe topics, skill resource, write opt
 
 `resources/list` MUST include `atlas://skill` (`text/markdown`). `resources/read` returns the same body as `atlas_help` `topic=atlas`. Unknown resource URIs MUST fail without returning the skill body. This is how the binary ships the agent skill.
 
-## `atlas_run`
+## `atlas_read` and `atlas_write`
 
-**Input**: `namespace`, `verb`, optional `args`, `flags`, `write_opt_in`.
+**Input**: `namespace`, `verb`, optional `args`, `flags`. `atlas_write` also takes `write_opt_in`.
 
 **Output (success)**: one text content item = CLI JSON stdout for the equivalent command (help verbs: help text).
 
 **Output (failure)**: `isError` true; one text content item `{class,message,hint}`. Classes MUST remain `usage` | `auth` | `service` | `not_found`.
 
+### Read list
+
+`auth status`, `site list|resolve`, `jira get|search`, `confluence get|search`, `pr get|list|diff`, `jsm desks|types|list|get`. `atlas_read` refuses every other verb with `usage`: a write verb gets hint `use atlas_write`. The list is an allowlist, so a new verb is refused until it is classified.
+
 ### Write gate
 
-Write list: `jira create|edit|comment|transition|link`, `confluence create|update`, `pr create|comment|merge`, `jsm create|comment|transition`. Writes dry-run unless `write_opt_in` is true.
+Write list: `jira create|edit|comment|transition|link`, `confluence create|update`, `pr create|comment|merge`, `jsm create|comment|transition`. `atlas_write` refuses every other verb with `usage`: a read verb gets hint `use atlas_read`. Writes dry-run unless `write_opt_in` is true.
 
-### Forbidden via run
+### Forbidden via either tool
 
 `auth login`, `auth logout`, namespace `mcp` → `usage` with hint to run `atlas auth login` in a terminal.
 
@@ -65,7 +72,7 @@ Write list: `jira create|edit|comment|transition|link`, `confluence create|updat
 | Command | Behavior |
 | --- | --- |
 | `atlas --help` | Lists `auth`, `site`, `jira`, `confluence`, `pr`, `jsm`, `mcp`. JSON, exit classes 3/4/5/6. |
-| `atlas mcp --help` / `atlas mcp serve --help` | Exit 0, no session. Names stdio, three tools, write opt-in default false, four recipe topics. |
+| `atlas mcp --help` / `atlas mcp serve --help` | Exit 0, no session. Names stdio, four tools, write opt-in default false, four recipe topics. |
 | `atlas mcp serve` | JSON-RPC on stdio until stdin closes. `--human` → usage (3). |
 | `atlas auth status` | Signed-out JSON with catalog sites, no tokens. |
 

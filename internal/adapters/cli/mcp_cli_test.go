@@ -24,7 +24,7 @@ func TestMCPHelpAndHuman(t *testing.T) {
 		t.Fatal(errw.String())
 	}
 	s := out.String()
-	for _, want := range []string{"atlas_status", "atlas_help", "atlas_run", "write_opt_in", "serve", "jira-search", "confluence-write", "atlas://skill", "topic=atlas"} {
+	for _, want := range []string{"atlas_status", "atlas_help", "atlas_read", "atlas_write", "write_opt_in", "serve", "jira-search", "confluence-write", "atlas://skill", "topic=atlas"} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("missing %q in %s", want, s)
 		}
@@ -44,26 +44,15 @@ func TestMCPHelpAndHuman(t *testing.T) {
 func TestMCPRunLoginAndMCPNamespaceRefused(t *testing.T) {
 	d, _, _ := testDeps()
 	cs := connectMCP(t, d)
-	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{Namespace: "auth", Verb: "login"},
-	})
-	if err != nil {
-		t.Fatal(err)
+	for _, tool := range []string{"atlas_read", "atlas_write"} {
+		for _, in := range []readIn{{Namespace: "auth", Verb: "login"}, {Namespace: "auth", Verb: "logout"}, {Namespace: "mcp", Verb: "serve"}} {
+			res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: tool, Arguments: in})
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertClass(t, res, "usage")
+		}
 	}
-	if !res.IsError {
-		t.Fatal(toolText(t, res))
-	}
-	assertClass(t, res, "usage")
-	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{Namespace: "mcp", Verb: "serve"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !res.IsError {
-		t.Fatal(toolText(t, res))
-	}
-	assertClass(t, res, "usage")
 }
 
 func assertClass(t *testing.T, res *mcp.CallToolResult, class string) {

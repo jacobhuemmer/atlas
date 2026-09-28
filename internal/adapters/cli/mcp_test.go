@@ -44,19 +44,62 @@ func TestToolsListCompactCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(list.Tools) != 3 {
+	if len(list.Tools) != 4 {
 		t.Fatalf("count %d", len(list.Tools))
 	}
 	got := map[string]string{}
 	for _, tl := range list.Tools {
 		got[tl.Name] = tl.Description
 	}
-	for _, name := range []string{"atlas_status", "atlas_help", "atlas_run"} {
+	for _, name := range []string{"atlas_status", "atlas_help", "atlas_read", "atlas_write"} {
 		if got[name] == "" {
 			t.Fatalf("missing %s in %#v", name, got)
 		}
 	}
-	if !strings.Contains(got["atlas_run"], "jira-search") {
-		t.Fatal(got["atlas_run"])
+	if !strings.Contains(got["atlas_read"], "jira-search") {
+		t.Fatal(got["atlas_read"])
+	}
+	if !strings.Contains(got["atlas_write"], "write_opt_in") {
+		t.Fatal(got["atlas_write"])
+	}
+}
+
+// Clients such as Codex run read-only tools without a prompt, so the hints
+// must be true only for tools that cannot change a workload.
+func TestToolAnnotations(t *testing.T) {
+	d, _, _ := testDeps()
+	cs := connectMCP(t, d)
+	list, err := cs.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tl := range list.Tools {
+		a := tl.Annotations
+		if a == nil {
+			t.Fatalf("%s has no annotations", tl.Name)
+		}
+		switch tl.Name {
+		case "atlas_status", "atlas_help", "atlas_read":
+			if !a.ReadOnlyHint {
+				t.Fatalf("%s not read-only", tl.Name)
+			}
+		case "atlas_write":
+			if a.ReadOnlyHint || a.DestructiveHint == nil || !*a.DestructiveHint {
+				t.Fatalf("atlas_write hints %+v", a)
+			}
+		default:
+			t.Fatalf("unexpected tool %s", tl.Name)
+		}
+	}
+}
+
+func TestAtlasRunRemoved(t *testing.T) {
+	d, _, _ := testDeps()
+	cs := connectMCP(t, d)
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "atlas_run", Arguments: readIn{Namespace: "jira", Verb: "get", Args: []string{"SDO-1"}},
+	})
+	if err == nil && (res == nil || !res.IsError) {
+		t.Fatal("atlas_run still answers")
 	}
 }

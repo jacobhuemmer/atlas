@@ -18,7 +18,7 @@ func TestMCPJiraCreateWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jira", Verb: "create",
 			Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "gated"},
 		},
@@ -44,7 +44,7 @@ func TestMCPJiraCreateWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jira", Verb: "create", WriteOptIn: true,
 			Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "gated"},
 		},
@@ -79,7 +79,7 @@ func TestMCPJSMCreateWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "create",
 			Flags: map[string]any{"desk": "3", "type": "40", "summary": "gated jsm"},
 		},
@@ -102,7 +102,7 @@ func TestMCPJSMCreateWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "create", WriteOptIn: true,
 			Flags: map[string]any{"desk": "3", "type": "40", "summary": "gated jsm"},
 		},
@@ -128,7 +128,7 @@ func TestMCPJSMCommentWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "comment",
 			Args:  []string{"EOS-1"},
 			Flags: map[string]any{"body": "gated comment"},
@@ -153,7 +153,7 @@ func TestMCPJSMCommentWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "comment", WriteOptIn: true,
 			Args:  []string{"EOS-1"},
 			Flags: map[string]any{"body": "gated comment"},
@@ -177,7 +177,7 @@ func TestMCPJSMTransitionWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "transition",
 			Args:  []string{"EOS-1"},
 			Flags: map[string]any{"id": "21"},
@@ -202,7 +202,7 @@ func TestMCPJSMTransitionWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jsm", Verb: "transition", WriteOptIn: true,
 			Args:  []string{"EOS-1"},
 			Flags: map[string]any{"id": "21"},
@@ -226,7 +226,7 @@ func TestMCPJiraLinkWriteGate(t *testing.T) {
 	cs := connectMCP(t, d)
 
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jira", Verb: "link",
 			Args: []string{"SDO-1", "SDP-2"},
 		},
@@ -256,7 +256,7 @@ func TestMCPJiraLinkWriteGate(t *testing.T) {
 	}
 
 	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "atlas_run", Arguments: runIn{
+		Name: "atlas_write", Arguments: writeIn{
 			Namespace: "jira", Verb: "link", WriteOptIn: true,
 			Args: []string{"SDO-1", "SDP-2"},
 		},

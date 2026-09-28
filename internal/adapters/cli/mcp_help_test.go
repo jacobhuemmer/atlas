@@ -106,7 +106,7 @@ func TestPromptsListFourRecipes(t *testing.T) {
 		t.Fatalf("count %d", len(pl.Prompts))
 	}
 	tl, err := cs.ListTools(context.Background(), nil)
-	if err != nil || len(tl.Tools) != 3 {
+	if err != nil || len(tl.Tools) != 4 {
 		t.Fatal(err, len(tl.Tools))
 	}
 }

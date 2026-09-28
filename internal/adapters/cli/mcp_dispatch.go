@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -83,9 +84,23 @@ func isWrite(ns, verb string) bool {
 	return false
 }
 
+// isRead is an allowlist. A verb it does not name is refused by atlas_read,
+// so a new write verb cannot run through the read-only tool.
+func isRead(ns, verb string) bool {
+	switch ns + " " + verb {
+	case "auth status", "site list", "site resolve",
+		"jira get", "jira search",
+		"confluence get", "confluence search",
+		"pr get", "pr list", "pr diff",
+		"jsm desks", "jsm types", "jsm list", "jsm get":
+		return true
+	}
+	return false
+}
+
 func runForbidden(ns, verb string) error {
 	if ns == "mcp" {
-		return &domain.Error{Class: domain.ClassUsage, Message: "mcp is not a run namespace", Hint: "use atlas_status, atlas_help, or atlas_run"}
+		return &domain.Error{Class: domain.ClassUsage, Message: "mcp is not a run namespace", Hint: "use atlas_status, atlas_help, atlas_read, or atlas_write"}
 	}
 	if ns == "auth" && (verb == "login" || verb == "logout") {
 		return &domain.Error{Class: domain.ClassUsage, Message: "auth login is a human terminal command", Hint: "run atlas auth login in a terminal"}
@@ -93,12 +108,37 @@ func runForbidden(ns, verb string) error {
 	return nil
 }
 
-func buildRunArgs(ns, verb string, pos []string, flags map[string]any, optIn bool) ([]string, error) {
+func checkRun(ns, verb string) error {
 	if ns == "" || verb == "" {
-		return nil, domain.Usage("namespace and verb are required")
+		return domain.Usage("namespace and verb are required")
 	}
-	if err := runForbidden(ns, verb); err != nil {
+	return runForbidden(ns, verb)
+}
+
+func buildReadArgs(ns, verb string, pos []string, flags map[string]any) ([]string, error) {
+	if err := checkRun(ns, verb); err != nil {
 		return nil, err
+	}
+	if !isRead(ns, verb) {
+		hint := "atlas_help lists each namespace's verbs"
+		if isWrite(ns, verb) {
+			hint = "use atlas_write"
+		}
+		return nil, &domain.Error{Class: domain.ClassUsage, Message: fmt.Sprintf("%s %s is not a read", ns, verb), Hint: hint}
+	}
+	return FlagMapToArgs(ns, verb, pos, flags)
+}
+
+func buildWriteArgs(ns, verb string, pos []string, flags map[string]any, optIn bool) ([]string, error) {
+	if err := checkRun(ns, verb); err != nil {
+		return nil, err
+	}
+	if !isWrite(ns, verb) {
+		hint := "atlas_help lists each namespace's verbs"
+		if isRead(ns, verb) {
+			hint = "use atlas_read"
+		}
+		return nil, &domain.Error{Class: domain.ClassUsage, Message: fmt.Sprintf("%s %s is not a write", ns, verb), Hint: hint}
 	}
 	return FlagMapToArgs(ns, verb, pos, applyWriteGate(ns, verb, flags, optIn))
 }
