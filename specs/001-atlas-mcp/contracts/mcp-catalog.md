@@ -37,7 +37,7 @@ Signed out → success, `signed_in` false, no interactive login.
 | `verb` | string | no |
 | `topic` | string | no (`jira-search` \| `confluence-write` \| `pr-review` \| `jsm-customer` \| `atlas`) |
 
-No args → overview: three tools, four recipe topics, skill resource, write opt-in. `topic` set → recipe or skill text. `namespace` / `verb` → CLI help. `topic` and `namespace` together → usage. Unknown topic → usage. No session. Text, not JSON.
+No args → overview: four tools, four recipe topics, skill resource, write opt-in. `topic` set → recipe or skill text. `namespace` / `verb` → CLI help. `topic` and `namespace` together → usage. Unknown topic → usage. No session. Text, not JSON.
 
 ## Named recipes (MCP prompts)
 
@@ -51,7 +51,9 @@ No args → overview: three tools, four recipe topics, skill resource, write opt
 
 **Input**: `namespace`, `verb`, optional `args`, `flags`. `atlas_write` also takes `write_opt_in`.
 
-**Output (success)**: one text content item = CLI JSON stdout for the equivalent command (help verbs: help text).
+**Output (success)**: one text content item = CLI JSON stdout for the equivalent command. Help goes through `atlas_help`.
+
+**Argument safety**: a positional arg that starts with `-` and a flag name outside `[a-z][a-z0-9-]*` → `usage`. Neither can end flag parsing early or override the injected `--dry-run`.
 
 **Output (failure)**: `isError` true; one text content item `{class,message,hint}`. Classes MUST remain `usage` | `auth` | `service` | `not_found`.
 

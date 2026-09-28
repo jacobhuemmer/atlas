@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -10,8 +11,17 @@ import (
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
+// flagName is a long flag name without dashes. Anything else could end flag
+// parsing early or set a flag the caller does not own, such as dry-run=false.
+var flagName = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+
 func FlagMapToArgs(ns, verb string, pos []string, flags map[string]any) ([]string, error) {
 	out := []string{"atlas", ns, verb}
+	for _, p := range pos {
+		if strings.HasPrefix(p, "-") {
+			return nil, &domain.Error{Class: domain.ClassUsage, Message: fmt.Sprintf("positional arg %q looks like a flag", p), Hint: "pass flags in flags"}
+		}
+	}
 	out = append(out, pos...)
 	if len(flags) == 0 {
 		return out, nil
@@ -22,7 +32,7 @@ func FlagMapToArgs(ns, verb string, pos []string, flags map[string]any) ([]strin
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		if k == "" || strings.HasPrefix(k, "-") {
+		if !flagName.MatchString(k) {
 			return nil, domain.Usagef("unknown flag %q", k)
 		}
 		name := "--" + k

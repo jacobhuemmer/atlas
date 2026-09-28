@@ -272,3 +272,26 @@ func TestMCPJiraLinkWriteGate(t *testing.T) {
 		t.Fatalf("%+v", got.Links)
 	}
 }
+
+// Positional args and flag keys are caller-controlled; neither may carry a
+// flag that ends parsing early or overrides the injected --dry-run.
+func TestMCPWriteGateResistsInjection(t *testing.T) {
+	d, _, _ := testDeps()
+	mem := d.Jira.(atlassian.JiraAPI).Memory
+	before := mem.IssueCount()
+	cs := connectMCP(t, d)
+	for _, in := range []writeIn{
+		{Namespace: "jira", Verb: "create", Args: []string{"--project=SDO", "--type=Task", "--summary=injected", "--"}},
+		{Namespace: "jira", Verb: "create", Args: []string{"--dry-run=false"}, Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "injected"}},
+		{Namespace: "jira", Verb: "create", Flags: map[string]any{"project": "SDO", "type": "Task", "summary": "injected", "dry-run=false": true}},
+	} {
+		res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "atlas_write", Arguments: in})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertClass(t, res, "usage")
+		if mem.IssueCount() != before {
+			t.Fatalf("issue created without write_opt_in: %+v", in)
+		}
+	}
+}
