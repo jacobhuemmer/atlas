@@ -19,6 +19,14 @@ brew install jacobhuemmer/atlas/atlas
 
 Upgrade with `brew upgrade jacobhuemmer/atlas/atlas`. For unreleased `main`, `brew install --HEAD jacobhuemmer/atlas/atlas` and later `brew upgrade --fetch-HEAD jacobhuemmer/atlas/atlas`.
 
+Chocolatey (64-bit Windows, once the package is approved in the community repository):
+
+```powershell
+choco install atlas-atlassian
+```
+
+The Chocolatey package contains `atlas.exe` and adds it to `PATH` through a Chocolatey shim. Until community approval, download the `chocolatey-package` artifact from a GitHub Actions run and install its `.nupkg` from the containing directory with `choco install atlas-atlassian --source .`.
+
 ## Config
 
 Write `$XDG_CONFIG_HOME/atlas/config.toml` (or `~/.config/atlas/config.toml`), or set `ATLAS_CONFIG` to a toml/json file. Sites, project keys, space keys, Bitbucket workspace, and the default JSM site live there. The binary does not ship a tenant table.
@@ -109,6 +117,7 @@ make verify
 ```
 
 CI runs `make verify` and builds `./cmd/atlas` on `macos-latest` for pushes and PRs to `main`.
+The Chocolatey workflow builds a Windows x64 executable, packs it with its license and verification record, and checks local install, `atlas --help`, and uninstall. Publishing a GitHub release pushes the package to the Chocolatey Community Repository when `CHOCOLATEY_API_KEY` is configured as a repository secret.
 
 ## License
 

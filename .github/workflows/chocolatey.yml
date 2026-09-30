@@ -1,0 +1,78 @@
+name: chocolatey
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build Windows executable
+        shell: pwsh
+        env:
+          CGO_ENABLED: 0
+          GOARCH: amd64
+        run: |
+          New-Item -ItemType Directory -Path chocolatey/tools -Force | Out-Null
+          go build -trimpath -buildvcs=false -ldflags '-s -w' -o chocolatey/tools/atlas.exe ./cmd/atlas
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item LICENSE chocolatey/tools/LICENSE.txt
+          $hash = (Get-FileHash chocolatey/tools/atlas.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          @(
+            "Source: https://github.com/jacobhuemmer/atlas/tree/$env:GITHUB_SHA"
+            "Build: go build -trimpath -buildvcs=false -ldflags '-s -w' -o chocolatey/tools/atlas.exe ./cmd/atlas"
+            "Compiler: $(go version)"
+            "SHA256 atlas.exe: $hash"
+          ) | Set-Content chocolatey/tools/VERIFICATION.txt
+      - name: Pack Chocolatey package
+        shell: pwsh
+        run: |
+          $version = '0.0.0'
+          if ($env:GITHUB_EVENT_NAME -eq 'release') {
+            if ($env:GITHUB_REF_NAME -notmatch '^v(\d+\.\d+\.\d+)$') { throw 'Release tag must be vMAJOR.MINOR.PATCH' }
+            $version = $Matches[1]
+          }
+          New-Item -ItemType Directory -Path chocolatey/dist -Force | Out-Null
+          Set-Location chocolatey
+          choco pack atlas-atlassian.nuspec --version $version --outputdirectory dist
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test package installation
+        shell: pwsh
+        run: |
+          $source = (Resolve-Path chocolatey/dist).Path
+          choco install atlas-atlassian --source $source --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $shim = Join-Path $env:ChocolateyInstall 'bin/atlas.exe'
+          if (-not (Test-Path $shim)) { throw 'Chocolatey did not create atlas.exe shim' }
+          $env:ATLAS_FAKE = '1'
+          $help = & $shim --help
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (($help -join "`n") -notmatch 'Atlassian CLI') { throw 'Chocolatey shim did not run Atlas' }
+          choco uninstall atlas-atlassian --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (Test-Path $shim) { throw 'Chocolatey did not remove atlas.exe shim' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chocolatey-package
+          path: chocolatey/dist/*.nupkg
+      - name: Publish to Chocolatey Community Repository
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          if (-not $env:CHOCOLATEY_API_KEY) { throw 'Set the CHOCOLATEY_API_KEY repository secret before publishing a release' }
+          $package = Get-ChildItem chocolatey/dist/*.nupkg | Select-Object -First 1
+          choco push $package.FullName --source https://push.chocolatey.org/ --api-key $env:CHOCOLATEY_API_KEY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>atlas-atlassian</id>
+    <version>$version$</version>
+    <title>Atlas (Atlassian CLI)</title>
+    <authors>Mason Huemmer</authors>
+    <owners>Mason Huemmer</owners>
+    <projectUrl>https://github.com/jacobhuemmer/atlas</projectUrl>
+    <projectSourceUrl>https://github.com/jacobhuemmer/atlas</projectSourceUrl>
+    <bugTrackerUrl>https://github.com/jacobhuemmer/atlas/issues</bugTrackerUrl>
+    <licenseUrl>https://github.com/jacobhuemmer/atlas/blob/main/LICENSE</licenseUrl>
+    <releaseNotes>https://github.com/jacobhuemmer/atlas/releases</releaseNotes>
+    <summary>Atlassian CLI for Jira, Confluence, Bitbucket, and JSM</summary>
+    <description>Atlas is a command-line client for Jira, Confluence, Bitbucket, and JSM customer REST. It emits JSON by default and provides a stdio MCP server.</description>
+    <tags>atlassian jira confluence bitbucket jsm cli</tags>
+  </metadata>
+  <files>
+    <file src="tools/atlas.exe" target="tools/atlas.exe" />
+    <file src="tools/LICENSE.txt" target="tools/LICENSE.txt" />
+    <file src="tools/VERIFICATION.txt" target="tools/VERIFICATION.txt" />
+  </files>
+</package>
