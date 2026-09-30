@@ -58,6 +58,7 @@ keys map to an alias. JQL/CQL that names two sites is usage. A
 | Search Jira | `atlas_read` `namespace=jira` `verb=search` `flags={jql:"project = KEY"}` |
 | Create issue | `atlas_write` `namespace=jira` `verb=create` `flags={project,type,summary}` + `write_opt_in` |
 | Comment / transition / link | `atlas_write` `jira` `comment` / `transition` / `link` |
+| Internal JSM note on a licensed site | `atlas_write` `namespace=jira` `verb=comment` `args=["KEY-1"]` `flags={body:"…",internal:true}` + `write_opt_in`; the key must resolve as a customer request |
 | Confluence get/search | `atlas_read` `confluence` `get` / `search` (`cql`) |
 | Confluence create/update | `atlas_write`; no delete |
 | PR get/list/diff | `atlas_read` `pr` `get` / `list` / `diff` (`repo`, `id`) |

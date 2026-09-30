@@ -93,6 +93,50 @@ func TestJiraCommentPersists(t *testing.T) {
 	}
 }
 
+func TestJiraInternalCommentDryRun(t *testing.T) {
+	d, out, errw := testDeps()
+	code := Run([]string{"atlas", "jira", "comment", "SDO-1", "--body", "private update", "--internal", "--dry-run"}, d)
+	if code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	var preview map[string]any
+	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview["internal"] != true || preview["dry_run"] != true {
+		t.Fatalf("%v", preview)
+	}
+	out.Reset()
+	if code := Run([]string{"atlas", "jira", "get", "SDO-1"}, d); code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	var iss domain.Issue
+	if err := json.Unmarshal(out.Bytes(), &iss); err != nil {
+		t.Fatal(err)
+	}
+	if len(iss.Comments) != 0 {
+		t.Fatalf("comments %v", iss.Comments)
+	}
+}
+
+func TestJiraInternalCommentRequiresCustomerRequest(t *testing.T) {
+	d, out, errw := testDeps()
+	code := Run([]string{"atlas", "jira", "comment", "SDO-1", "--body", "private update", "--internal"}, d)
+	if code != domain.ExitNotFound {
+		t.Fatal(code, errw.String())
+	}
+	if code := Run([]string{"atlas", "jira", "get", "SDO-1"}, d); code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	var iss domain.Issue
+	if err := json.Unmarshal(out.Bytes(), &iss); err != nil {
+		t.Fatal(err)
+	}
+	if len(iss.Comments) != 0 {
+		t.Fatalf("public comment created: %v", iss.Comments)
+	}
+}
+
 func TestJiraTransitionSDO1Done(t *testing.T) {
 	d, out, errw := testDeps()
 	code := Run([]string{"atlas", "jira", "transition", "SDO-1", "--name", "Done"}, d)

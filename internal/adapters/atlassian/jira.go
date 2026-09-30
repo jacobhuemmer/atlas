@@ -75,6 +75,13 @@ func (j JiraAPI) Comment(ctx context.Context, hostname, key, body string, dryRun
 	return j.Memory.Comment(ctx, hostname, key, body, dryRun)
 }
 
+func (j JiraAPI) CommentInternal(ctx context.Context, hostname, key, body string, dryRun bool) error {
+	if j.Memory == nil {
+		return domain.Service("jira memory not configured")
+	}
+	return j.Memory.CommentInternal(ctx, hostname, key, body, dryRun)
+}
+
 func (j JiraAPI) Transition(ctx context.Context, hostname, key, name string, dryRun bool) (domain.Issue, error) {
 	if j.Memory == nil {
 		return domain.Issue{}, domain.Service("jira memory not configured")
@@ -226,6 +233,26 @@ func (m *Memory) Comment(_ context.Context, hostname, key, body string, dryRun b
 	}
 	iss.Comments = append(append([]string(nil), iss.Comments...), body)
 	m.putLocked(iss)
+	return nil
+}
+
+func (m *Memory) CommentInternal(_ context.Context, hostname, key, body string, dryRun bool) error {
+	if m == nil {
+		return domain.Service("jira memory not configured")
+	}
+	if dryRun {
+		return nil
+	}
+	hostname = strings.TrimSpace(hostname)
+	key = strings.ToUpper(strings.TrimSpace(key))
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	req, ok := m.requests[memKey(hostname, key)]
+	if !ok {
+		return domain.NotFound("request not found")
+	}
+	req.Comments = append(req.Comments, domain.Comment{Body: body, Public: false})
+	m.putRequestLocked(req)
 	return nil
 }
 

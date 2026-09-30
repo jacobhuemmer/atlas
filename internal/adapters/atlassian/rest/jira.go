@@ -283,6 +283,39 @@ func (j Jira) Comment(ctx context.Context, hostname, key, body string, dryRun bo
 	return nil
 }
 
+func (j Jira) CommentInternal(ctx context.Context, hostname, key, body string, dryRun bool) error {
+	if dryRun {
+		return nil
+	}
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return err
+	}
+	requestURL := joinURL(j.origin(hostname), "/rest/servicedeskapi/request/"+q(strings.ToUpper(strings.TrimSpace(key))))
+	code, _, err := j.doJSON(ctx, http.MethodGet, requestURL, cred, jsmHeaders(), nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return MapJSMStatus(code)
+	}
+	code, response, err := j.doJSON(ctx, http.MethodPost, requestURL+"/comment", cred, jsmHeaders(), map[string]any{"body": body, "public": false})
+	if err != nil {
+		return err
+	}
+	if code != http.StatusCreated && code != http.StatusOK {
+		return MapJSMStatus(code)
+	}
+	public, ok := mustJSON(response)["public"].(bool)
+	if !ok {
+		return domain.Service("internal comment may have been created, but visibility could not be verified; check the issue before retrying")
+	}
+	if public {
+		return domain.Service("internal comment was created as public; review the issue immediately")
+	}
+	return nil
+}
+
 func (j Jira) Transition(ctx context.Context, hostname, key, name string, dryRun bool) (domain.Issue, error) {
 	cred, err := j.credForHost(hostname)
 	if err != nil {

@@ -214,6 +214,7 @@ func jiraComment(args []string, d Deps, format string) int {
 	fsset.SetOutput(d.Stderr)
 	siteFlag := fsset.String("site", "", "site alias, hostname, or UUID")
 	body := fsset.String("body", "", "markdown comment body")
+	internal := fsset.Bool("internal", false, "create a JSM internal note")
 	dry := fsset.Bool("dry-run", false, "")
 	if err := parseMixed(fsset, args); err != nil {
 		return fail(d, domain.Usage(err.Error()))
@@ -235,7 +236,11 @@ func jiraComment(args []string, d Deps, format string) int {
 	if d.Jira == nil {
 		return fail(d, domain.Service("jira adapter not configured"))
 	}
-	if err := d.Jira.Comment(ctx(), site.Hostname, key, *body, *dry); err != nil {
+	comment := d.Jira.Comment
+	if *internal {
+		comment = d.Jira.CommentInternal
+	}
+	if err := comment(ctx(), site.Hostname, key, *body, *dry); err != nil {
 		return fail(d, err)
 	}
 	if *dry {
@@ -245,7 +250,11 @@ func jiraComment(args []string, d Deps, format string) int {
 			Verb:      "comment",
 			Key:       strings.ToUpper(strings.TrimSpace(key)),
 			Body:      *body,
+			Internal:  *internal,
 		})
+	}
+	if *internal {
+		return success(d, format, map[string]any{"key": strings.ToUpper(strings.TrimSpace(key)), "body": *body, "internal": true})
 	}
 	return success(d, format, map[string]any{"key": strings.ToUpper(strings.TrimSpace(key)), "body": *body})
 }
@@ -367,6 +376,7 @@ type jiraLinkResult struct {
 
 type jiraDryRun struct {
 	DryRun    bool   `json:"dry_run"`
+	Internal  bool   `json:"internal,omitempty"`
 	Namespace string `json:"namespace"`
 	Verb      string `json:"verb"`
 	Project   string `json:"project,omitempty"`

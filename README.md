@@ -102,6 +102,8 @@ atlas <namespace> <verb> [flags]
 
 Every call resolves one site from config. A `jsm_customer` site refuses `jira` and `confluence` (use `atlas jsm`). `atlas pr` uses the workspace Bitbucket cred, not a site token. Exit classes: `0` success, `3` usage/config, `4` auth, `5` service, `6` not-found.
 
+For an internal note on a JSM customer request at a licensed site, use `atlas jira comment KEY-1 --body '...' --internal`. Atlas checks that the request is accessible, posts with internal visibility, and verifies the response. It never falls back to a public comment. `--dry-run` previews the command without checking site access.
+
 ## MCP
 
 ```sh
