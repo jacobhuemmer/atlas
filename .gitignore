@@ -9,6 +9,8 @@
 coverage.out
 bin/
 /atlas
+chocolatey/tools/
+chocolatey/dist/
 vendor/
 build/
 .tools/
