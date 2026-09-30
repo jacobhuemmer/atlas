@@ -13,6 +13,7 @@ type Store interface {
 	Create(ctx context.Context, hostname string, in domain.CreateIssue, dryRun bool) (domain.Issue, error)
 	Edit(ctx context.Context, hostname, key string, fields map[string]any, dryRun bool) (domain.Issue, error)
 	Comment(ctx context.Context, hostname, key, body string, dryRun bool) error
+	CommentInternal(ctx context.Context, hostname, key, body string, dryRun bool) error
 	Transition(ctx context.Context, hostname, key, name string, dryRun bool) (domain.Issue, error)
 	Link(ctx context.Context, hostname, inward, outward, linkType string, dryRun bool) error
 }

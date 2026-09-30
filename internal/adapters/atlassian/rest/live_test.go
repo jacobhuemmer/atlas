@@ -38,6 +38,23 @@ func liveClient(t *testing.T, h http.Handler) (*Client, *httptest.Server) {
 	return c, srv
 }
 
+type handlerTransport struct{ handler http.Handler }
+
+func (h handlerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	w := httptest.NewRecorder()
+	h.handler.ServeHTTP(w, r)
+	return w.Result(), nil
+}
+
+func noSocketClient(t *testing.T, h http.Handler) *Client {
+	t.Helper()
+	store := &keychain.Fake{}
+	if err := auth.PutSite(store, "dev", auth.Cred{Email: "a@b.c", Token: "tok"}); err != nil {
+		t.Fatal(err)
+	}
+	return &Client{HTTP: &http.Client{Transport: handlerTransport{handler: h}}, Store: store, BaseURL: "https://dev.example.atlassian.net"}
+}
+
 func TestKeepBasicAuthOnSameHostRedirect(t *testing.T) {
 	sawAuth := false
 	mux := http.NewServeMux()
@@ -229,6 +246,90 @@ func TestJiraCommentPostsADF(t *testing.T) {
 	}
 	if asMap(payload["body"])["type"] != "doc" {
 		t.Fatalf("%v", payload)
+	}
+}
+
+func TestJiraInternalCommentUsesJSMRequestAPI(t *testing.T) {
+	var calls []string
+	var payload map[string]any
+	c := noSocketClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		switch r.Method + " " + r.URL.Path {
+		case "GET /rest/servicedeskapi/request/ABC-1":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"issueKey":"ABC-1"}`))
+		case "POST /rest/servicedeskapi/request/ABC-1/comment":
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":"42","public":false}`))
+		default:
+			t.Fatal(r.Method, r.URL.Path)
+		}
+	}))
+	if err := (Jira{Client: c}).CommentInternal(context.Background(), "dev.example.atlassian.net", "ABC-1", "private update", false); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 2 || calls[0] != "GET /rest/servicedeskapi/request/ABC-1" || calls[1] != "POST /rest/servicedeskapi/request/ABC-1/comment" {
+		t.Fatalf("calls %v", calls)
+	}
+	if payload["public"] != false || payload["body"] != "private update" {
+		t.Fatalf("payload %v", payload)
+	}
+}
+
+func TestJiraInternalCommentPreflightFailureDoesNotPost(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		code  int
+		class string
+	}{
+		{"not a customer request", http.StatusNotFound, domain.ClassNotFound},
+		{"no access", http.StatusForbidden, domain.ClassAuth},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			posts := 0
+			c := noSocketClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost {
+					posts++
+				}
+				w.WriteHeader(tc.code)
+			}))
+			err := (Jira{Client: c}).CommentInternal(context.Background(), "dev.example.atlassian.net", "ABC-1", "private update", false)
+			if domain.ClassOf(err) != tc.class || posts != 0 {
+				t.Fatalf("error %v, posts %d", err, posts)
+			}
+		})
+	}
+}
+
+func TestJiraInternalCommentDetectsVisibilityMismatch(t *testing.T) {
+	for _, response := range []string{`{"public":true}`, `{}`} {
+		t.Run(response, func(t *testing.T) {
+			c := noSocketClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(response))
+			}))
+			err := (Jira{Client: c}).CommentInternal(context.Background(), "dev.example.atlassian.net", "ABC-1", "private update", false)
+			if domain.ClassOf(err) != domain.ClassService || !strings.Contains(err.Error(), "visibility") && !strings.Contains(err.Error(), "public") {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestJiraInternalCommentDryRunDoesNotCallSite(t *testing.T) {
+	hit := false
+	c := noSocketClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hit = true
+	}))
+	if err := (Jira{Client: c}).CommentInternal(context.Background(), "dev.example.atlassian.net", "ABC-1", "private update", true); err != nil || hit {
+		t.Fatalf("error %v, site called %v", err, hit)
 	}
 }
 

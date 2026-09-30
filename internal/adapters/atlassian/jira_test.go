@@ -31,3 +31,16 @@ func TestMemoryGetAndSearchIsolation(t *testing.T) {
 		}
 	}
 }
+
+func TestMemoryInternalCommentStaysPrivate(t *testing.T) {
+	mem := Seed()
+	hostname := host("sesamidevel")
+	mem.putRequest(domain.CustomerRequest{Key: "SDO-1", Site: hostname})
+	if err := (JiraAPI{Memory: mem}).CommentInternal(context.Background(), hostname, "SDO-1", "private update", false); err != nil {
+		t.Fatal(err)
+	}
+	req := mem.requests[memKey(hostname, "SDO-1")]
+	if len(req.Comments) != 1 || req.Comments[0].Public || req.Comments[0].Body != "private update" {
+		t.Fatalf("comments %+v", req.Comments)
+	}
+}

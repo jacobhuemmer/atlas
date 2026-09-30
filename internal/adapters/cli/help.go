@@ -51,13 +51,14 @@ get:        atlas jira get KEY-1
 search:     atlas jira search --jql 'project = KEY' [--site ALIAS]
 create:     atlas jira create --project KEY --type Task --summary '...'
 edit:       atlas jira edit KEY-1 --fields '{...}'
-comment:    atlas jira comment KEY-1 --body '...'
+comment:    atlas jira comment KEY-1 --body '...' [--internal]
 transition: atlas jira transition KEY-1 --name Done
 link:       atlas jira link KEY-1 OTHER-2 [--type Relates]
 
 Project keys map to a site in config. Combined JQL that names two sites is usage.
 --site is required only when inference cannot run.
 A jsm_customer site is not Jira search: use atlas jsm, not atlas jira search.
+--internal requires an accessible JSM customer request and never falls back to a public comment.
 link default type is Relates. Both keys must be the same cloud.
 When type is Blocks, inward is the blocker and outward is the blocked issue.
 MCP writes dry-run unless write_opt_in is true.
