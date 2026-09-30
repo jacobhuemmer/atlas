@@ -58,7 +58,7 @@ jobs:
           $env:ATLAS_FAKE = '1'
           $help = & $shim --help
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if ($help -notmatch 'Atlassian CLI') { throw 'Chocolatey shim did not run Atlas' }
+          if (($help -join "`n") -notmatch 'Atlassian CLI') { throw 'Chocolatey shim did not run Atlas' }
           choco uninstall atlas-atlassian --yes --no-progress
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (Test-Path $shim) { throw 'Chocolatey did not remove atlas.exe shim' }
