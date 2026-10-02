@@ -48,6 +48,12 @@ type CreatePullRequest struct {
 	Reviewers   []string
 }
 
+// EditPullRequest uses nil for an unchanged field. An empty description clears it.
+type EditPullRequest struct {
+	Title       *string
+	Description *string
+}
+
 // PRURL is https://bitbucket.org/<workspace>/<repo>/pull-requests/<id>.
 func PRURL(workspace, repo string, id int) string {
 	return "https://bitbucket.org/" + workspace + "/" + repo + "/pull-requests/" + strconv.Itoa(id)

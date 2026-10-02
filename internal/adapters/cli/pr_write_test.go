@@ -68,6 +68,101 @@ func TestPRCreateDryRunDoesNotPersist(t *testing.T) {
 	}
 }
 
+func TestPREditDescriptionAndTitle(t *testing.T) {
+	d, out, errw := testDeps()
+	mem := d.PR.(atlassian.PRAPI).Memory
+	before, err := mem.GetPR(context.Background(), domain.DefaultWorkspace(), "atlas", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := Run([]string{"atlas", "pr", "edit", "--repo", "atlas", "--id", "1", "--description", "## Updated\n\nDetails"}, d); code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	var edited domain.PullRequest
+	if err := json.Unmarshal(out.Bytes(), &edited); err != nil {
+		t.Fatal(err)
+	}
+	if edited.Title != before.Title || edited.Description != "## Updated\n\nDetails" {
+		t.Fatalf("%+v", edited)
+	}
+	out.Reset()
+	if code := Run([]string{"atlas", "pr", "edit", "--repo", "atlas", "--id", "1", "--title", "New title"}, d); code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	got, err := mem.GetPR(context.Background(), domain.DefaultWorkspace(), "atlas", 1)
+	if err != nil || got.Title != "New title" || got.Description != edited.Description {
+		t.Fatalf("%v %+v", err, got)
+	}
+	if code := Run([]string{"atlas", "pr", "edit", "--repo", "atlas", "--id", "1", "--description", ""}, d); code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	got, err = mem.GetPR(context.Background(), domain.DefaultWorkspace(), "atlas", 1)
+	if err != nil || got.Description != "" {
+		t.Fatalf("%v %+v", err, got)
+	}
+}
+
+func TestPREditDryRunAndValidation(t *testing.T) {
+	d, out, errw := testDeps()
+	mem := d.PR.(atlassian.PRAPI).Memory
+	before, err := mem.GetPR(context.Background(), domain.DefaultWorkspace(), "atlas", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := Run([]string{"atlas", "pr", "edit", "--repo", "atlas", "--id", "1", "--description", "preview", "--dry-run"}, d); code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	var preview map[string]any
+	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview["dry_run"] != true || preview["verb"] != "edit" || preview["description"] != "preview" {
+		t.Fatal(preview)
+	}
+	got, err := mem.GetPR(context.Background(), domain.DefaultWorkspace(), "atlas", 1)
+	if err != nil || got.Description != before.Description {
+		t.Fatalf("%v %+v", err, got)
+	}
+	for _, args := range [][]string{
+		{"atlas", "pr", "edit", "--repo", "atlas", "--id", "1"},
+		{"atlas", "pr", "edit", "--repo", "atlas", "--id", "1", "--title", ""},
+	} {
+		if code := Run(args, d); code != domain.ExitUsage {
+			t.Fatalf("%v: exit %d", args, code)
+		}
+	}
+}
+
+func TestMCPPREditWriteGate(t *testing.T) {
+	d, _, _ := testDeps()
+	mem := d.PR.(atlassian.PRAPI).Memory
+	cs := connectMCP(t, d)
+	args := writeIn{Namespace: "pr", Verb: "edit", Flags: map[string]any{
+		"repo": "atlas", "id": float64(1), "description": "MCP edit",
+	}}
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "atlas_write", Arguments: args})
+	if err != nil || res.IsError {
+		t.Fatal(err, toolText(t, res))
+	}
+	var preview map[string]any
+	if err := json.Unmarshal([]byte(toolText(t, res)), &preview); err != nil || preview["dry_run"] != true {
+		t.Fatal(err, toolText(t, res))
+	}
+	got, err := mem.GetPR(context.Background(), domain.DefaultWorkspace(), "atlas", 1)
+	if err != nil || got.Description == "MCP edit" {
+		t.Fatalf("%v %+v", err, got)
+	}
+	args.WriteOptIn = true
+	res, err = cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "atlas_write", Arguments: args})
+	if err != nil || res.IsError {
+		t.Fatal(err, toolText(t, res))
+	}
+	got, err = mem.GetPR(context.Background(), domain.DefaultWorkspace(), "atlas", 1)
+	if err != nil || got.Description != "MCP edit" {
+		t.Fatalf("%v %+v", err, got)
+	}
+}
+
 func TestMCPPRMergeWriteGate(t *testing.T) {
 	d, _, _ := testDeps()
 	mem := d.PR.(atlassian.PRAPI).Memory

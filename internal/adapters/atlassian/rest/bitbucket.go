@@ -100,6 +100,40 @@ func (b Bitbucket) Create(ctx context.Context, workspace, repo string, in domain
 	return prFromREST(workspace, repo, mustJSON(body)), nil
 }
 
+func (b Bitbucket) Edit(ctx context.Context, workspace, repo string, id int, in domain.EditPullRequest, dryRun bool) (domain.PullRequest, error) {
+	current, err := b.Get(ctx, workspace, repo, id)
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	if current.State != "OPEN" {
+		return domain.PullRequest{}, domain.Usage("only open pull requests can be edited")
+	}
+	if in.Title != nil {
+		current.Title = *in.Title
+	}
+	if in.Description != nil {
+		current.Description = *in.Description
+	}
+	if dryRun {
+		return current, nil
+	}
+	cred, err := b.workspaceCred(workspace)
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	u := joinURL(b.bitbucketOrigin(), "/2.0/repositories/"+q(workspace)+"/"+q(repo)+"/pullrequests/"+strconv.Itoa(id))
+	code, body, err := b.doJSON(ctx, http.MethodPut, u, cred, nil, map[string]any{
+		"title": current.Title, "description": current.Description,
+	})
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	if code != http.StatusOK {
+		return domain.PullRequest{}, MapBitbucketStatus(code)
+	}
+	return prFromREST(workspace, repo, mustJSON(body)), nil
+}
+
 func (b Bitbucket) Comment(ctx context.Context, workspace, repo string, id int, body string, dryRun bool) error {
 	if dryRun {
 		return nil
