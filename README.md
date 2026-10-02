@@ -104,6 +104,12 @@ Every call resolves one site from config. A `jsm_customer` site refuses `jira` a
 
 For an internal note on a JSM customer request at a licensed site, use `atlas jira comment KEY-1 --body '...' --internal`. Atlas checks that the request is accessible, posts with internal visibility, and verifies the response. It never falls back to a public comment. `--dry-run` previews the command without checking site access.
 
+Find an account ID before assigning a ticket with `atlas jira users --query 'Alex' --project SDO` or `atlas jira users --query 'Alex' --issue SDO-588`. The scoped forms return users Jira considers assignable to that project or issue. Use `--site ALIAS` without a scope for a general lookup. Results include `account_id`, display name, and email when Jira permits it. Pass the ID to `jira create --assignee ID` or `jira edit KEY-1 --assignee ID`.
+
+Create a sub-task under a story with `atlas jira create --project KEY --type Sub-task --summary '...' --parent KEY-1`. Reparent an existing sub-task with `atlas jira edit KEY-2 --parent KEY-1`. Both issues must be in the same project. Jira must allow the chosen issue type and parent. `atlas jira get KEY-2` shows the `parent` key. For a regular issue link without changing the parent, use `atlas jira link KEY-1 KEY-2 [--type Relates]`.
+
+Jira issue descriptions and public comments accept Markdown. Atlas converts headings, lists, emphasis, links, code, and tables to Jira's rich-text document format when writing. Existing descriptions stored as literal Markdown need to be edited once to render with formatting.
+
 ## MCP
 
 ```sh

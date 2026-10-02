@@ -209,6 +209,66 @@ func TestJiraEditFields(t *testing.T) {
 	}
 }
 
+func TestJiraSubtaskCreateAndReparent(t *testing.T) {
+	d, out, errw := testDeps()
+	code := Run([]string{"atlas", "jira", "create", "--project", "SES", "--type", "Sub-task", "--summary", "Investigate", "--parent", "SES-1", "--dry-run"}, d)
+	if code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	var preview map[string]any
+	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview["dry_run"] != true || preview["parent"] != "SES-1" {
+		t.Fatalf("%v", preview)
+	}
+	out.Reset()
+	code = Run([]string{"atlas", "jira", "create", "--project", "SES", "--type", "Sub-task", "--summary", "Investigate", "--parent", "SES-1"}, d)
+	if code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	var subtask domain.Issue
+	if err := json.Unmarshal(out.Bytes(), &subtask); err != nil {
+		t.Fatal(err)
+	}
+	if subtask.Key != "SES-2" || subtask.Parent != "SES-1" || subtask.IssueType != "Sub-task" {
+		t.Fatalf("%+v", subtask)
+	}
+	out.Reset()
+	code = Run([]string{"atlas", "jira", "create", "--project", "SES", "--type", "Story", "--summary", "Other story"}, d)
+	if code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	var story domain.Issue
+	if err := json.Unmarshal(out.Bytes(), &story); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	code = Run([]string{"atlas", "jira", "edit", subtask.Key, "--parent", story.Key}, d)
+	if code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	out.Reset()
+	code = Run([]string{"atlas", "jira", "get", subtask.Key}, d)
+	if code != domain.ExitOK {
+		t.Fatal(code, errw.String())
+	}
+	if err := json.Unmarshal(out.Bytes(), &subtask); err != nil {
+		t.Fatal(err)
+	}
+	if subtask.Parent != story.Key {
+		t.Fatalf("parent %q, want %q", subtask.Parent, story.Key)
+	}
+}
+
+func TestJiraSubtaskParentMustShareProject(t *testing.T) {
+	d, _, errw := testDeps()
+	code := Run([]string{"atlas", "jira", "create", "--project", "SES", "--type", "Sub-task", "--summary", "Investigate", "--parent", "CAB-1"}, d)
+	if code != domain.ExitUsage {
+		t.Fatal(code, errw.String())
+	}
+}
+
 func hasRelatesLink(iss domain.Issue, inward, outward string) bool {
 	for _, l := range iss.Links {
 		if l.Type == domain.DefaultLinkType && l.Inward == inward && l.Outward == outward {

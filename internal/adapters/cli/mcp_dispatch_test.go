@@ -16,6 +16,16 @@ func TestFlagMapToArgs(t *testing.T) {
 	}
 }
 
+func TestJiraUsersIsReadOnly(t *testing.T) {
+	args, err := buildReadArgs("jira", "users", nil, map[string]any{"query": "Alex", "project": "SDO"})
+	if err != nil || len(args) != 5 {
+		t.Fatalf("%v %v", args, err)
+	}
+	if isWrite("jira", "users") {
+		t.Fatal("user lookup is a write")
+	}
+}
+
 func TestWriteGateInjectsDryRun(t *testing.T) {
 	writes := [][2]string{
 		{"jira", "create"},

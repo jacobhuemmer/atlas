@@ -56,7 +56,12 @@ keys map to an alias. JQL/CQL that names two sites is usage. A
 | Help / recipe | `atlas_help` `topic=jira-search` (or namespace/verb) |
 | Get issue | `atlas_read` `namespace=jira` `verb=get` `args=["KEY-1"]` |
 | Search Jira | `atlas_read` `namespace=jira` `verb=search` `flags={jql:"project = KEY"}` |
+| Find an assignee account ID | `atlas_read` `namespace=jira` `verb=users` `flags={query:"Alex",project:"KEY"}`; use `issue:"KEY-1"` for an existing issue |
+| Assign an existing issue | `atlas_write` `namespace=jira` `verb=edit` `args=["KEY-1"]` `flags={assignee:"ACCOUNT_ID"}` + `write_opt_in` |
 | Create issue | `atlas_write` `namespace=jira` `verb=create` `flags={project,type,summary}` + `write_opt_in` |
+| Create sub-task under story | `atlas_write` `namespace=jira` `verb=create` `flags={project,type:"Sub-task",summary,parent:"KEY-1"}` + `write_opt_in` |
+| Reparent sub-task | `atlas_write` `namespace=jira` `verb=edit` `args=["KEY-2"]` `flags={parent:"KEY-1"}` + `write_opt_in` |
+| Link issues without changing parent | `atlas_write` `namespace=jira` `verb=link` `args=["KEY-1","KEY-2"]` + `write_opt_in` |
 | Comment / transition / link | `atlas_write` `jira` `comment` / `transition` / `link` |
 | Internal JSM note on a licensed site | `atlas_write` `namespace=jira` `verb=comment` `args=["KEY-1"]` `flags={body:"…",internal:true}` + `write_opt_in`; the key must resolve as a customer request |
 | Confluence get/search | `atlas_read` `confluence` `get` / `search` (`cql`) |

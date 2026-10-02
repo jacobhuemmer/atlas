@@ -21,6 +21,7 @@ type Issue struct {
 	Description string      `json:"description,omitempty"`
 	Status      string      `json:"status"`
 	IssueType   string      `json:"issuetype"`
+	Parent      string      `json:"parent,omitempty"`
 	Priority    string      `json:"priority,omitempty"`
 	Labels      []string    `json:"labels,omitempty"`
 	Assignee    string      `json:"assignee,omitempty"`
@@ -45,6 +46,7 @@ type SearchResult struct {
 type CreateIssue struct {
 	Project     string
 	IssueType   string
+	Parent      string
 	Summary     string
 	Description string
 	Labels      []string

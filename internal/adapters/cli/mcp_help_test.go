@@ -119,7 +119,7 @@ func TestMCPHelpNeverRunsVerb(t *testing.T) {
 	verbs := map[string][]string{
 		"auth":       {"status", "login", "logout"},
 		"site":       {"list", "resolve"},
-		"jira":       {"get", "search", "create", "edit", "comment", "transition", "link"},
+		"jira":       {"get", "search", "users", "create", "edit", "comment", "transition", "link"},
 		"confluence": {"get", "search", "create", "update"},
 		"pr":         {"get", "list", "create", "comment", "merge", "diff"},
 		"jsm":        {"desks", "types", "list", "get", "create", "comment", "transition"},
