@@ -18,6 +18,8 @@ func runJira(args []string, d Deps, format string) int {
 		return jiraGet(args, d, format)
 	case "search":
 		return jiraSearch(args, d, format)
+	case "users":
+		return jiraUsers(args, d, format)
 	case "create":
 		return jiraCreate(args, d, format)
 	case "edit":
@@ -95,6 +97,42 @@ func jiraSearch(args []string, d Deps, format string) int {
 	return success(d, format, page)
 }
 
+func jiraUsers(args []string, d Deps, format string) int {
+	if hasHelp(args) {
+		return writeHelp(d.Stdout, jiraHelp)
+	}
+	fsset := flag.NewFlagSet("jira users", flag.ContinueOnError)
+	fsset.SetOutput(d.Stderr)
+	siteFlag := fsset.String("site", "", "site alias, hostname, or UUID")
+	query := fsset.String("query", "", "name or email to find")
+	project := fsset.String("project", "", "find users assignable to new issues in this project")
+	issue := fsset.String("issue", "", "find users assignable to this issue")
+	if err := parseMixed(fsset, args); err != nil {
+		return fail(d, domain.Usage(err.Error()))
+	}
+	if strings.TrimSpace(*query) == "" {
+		return fail(d, domain.Usage("users requires --query").WithHint("atlas jira users --query 'Alex' --project SDO"))
+	}
+	if strings.TrimSpace(*project) != "" && strings.TrimSpace(*issue) != "" {
+		return fail(d, domain.Usage("users accepts --project or --issue, not both"))
+	}
+	site, err := domain.Resolve(domain.ResolveInput{Site: *siteFlag, Project: *project, Issue: *issue})
+	if err != nil {
+		return fail(d, err)
+	}
+	if err := refuseCustomerJira(site); err != nil {
+		return fail(d, err)
+	}
+	if d.Jira == nil {
+		return fail(d, domain.Service("jira adapter not configured"))
+	}
+	result, err := d.Jira.SearchUsers(ctx(), site.Hostname, *query, *project, *issue)
+	if err != nil {
+		return fail(d, err)
+	}
+	return success(d, format, result)
+}
+
 func jiraCreate(args []string, d Deps, format string) int {
 	if hasHelp(args) {
 		return writeHelp(d.Stdout, jiraHelp)
@@ -103,7 +141,8 @@ func jiraCreate(args []string, d Deps, format string) int {
 	fsset.SetOutput(d.Stderr)
 	siteFlag := fsset.String("site", "", "site alias, hostname, or UUID")
 	project := fsset.String("project", "", "project key from config")
-	issuetype := fsset.String("type", "", "issuetype.name (Task, Story, Incident, Change)")
+	issuetype := fsset.String("type", "", "issuetype.name (Task, Story, Sub-task, Incident, Change)")
+	parent := fsset.String("parent", "", "parent issue key when creating a sub-task")
 	summary := fsset.String("summary", "", "summary")
 	description := fsset.String("description", "", "markdown description")
 	assignee := fsset.String("assignee", "", "assignee.accountId")
@@ -131,12 +170,17 @@ func jiraCreate(args []string, d Deps, format string) int {
 	if err := refuseCustomerJira(site); err != nil {
 		return fail(d, err)
 	}
+	parentKey, err := resolveParent(*parent, *project, site)
+	if err != nil {
+		return fail(d, err)
+	}
 	if d.Jira == nil {
 		return fail(d, domain.Service("jira adapter not configured"))
 	}
 	in := domain.CreateIssue{
 		Project:     strings.ToUpper(strings.TrimSpace(*project)),
 		IssueType:   strings.TrimSpace(*issuetype),
+		Parent:      parentKey,
 		Summary:     strings.TrimSpace(*summary),
 		Description: *description,
 		Labels:      labels,
@@ -155,6 +199,8 @@ func jiraCreate(args []string, d Deps, format string) int {
 			Namespace: "jira",
 			Verb:      "create",
 			Project:   in.Project,
+			Parent:    in.Parent,
+			Assignee:  in.Assignee,
 			Summary:   in.Summary,
 		})
 	}
@@ -169,6 +215,8 @@ func jiraEdit(args []string, d Deps, format string) int {
 	fsset.SetOutput(d.Stderr)
 	siteFlag := fsset.String("site", "", "site alias, hostname, or UUID")
 	fieldsJSON := fsset.String("fields", "", "JSON object of REST field names")
+	parent := fsset.String("parent", "", "new parent issue key for a sub-task")
+	assignee := fsset.String("assignee", "", "assignee account ID")
 	dry := fsset.Bool("dry-run", false, "")
 	if err := parseMixed(fsset, args); err != nil {
 		return fail(d, domain.Usage(err.Error()))
@@ -177,16 +225,39 @@ func jiraEdit(args []string, d Deps, format string) int {
 	if strings.TrimSpace(key) == "" {
 		return fail(d, domain.Usage("issue key is required").WithHint("atlas jira edit KEY-1 --fields '{...}'"))
 	}
-	fields, err := parseFieldsJSON(*fieldsJSON)
-	if err != nil {
-		return fail(d, err)
-	}
 	site, err := domain.Resolve(domain.ResolveInput{Site: *siteFlag, Issue: key})
 	if err != nil {
 		return fail(d, err)
 	}
 	if err := refuseCustomerJira(site); err != nil {
 		return fail(d, err)
+	}
+	if strings.TrimSpace(*fieldsJSON) == "" && strings.TrimSpace(*parent) == "" && strings.TrimSpace(*assignee) == "" {
+		return fail(d, domain.Usage("edit requires --fields, --parent, or --assignee").WithHint("atlas jira edit KEY-1 --assignee ACCOUNT_ID"))
+	}
+	fields := map[string]any{}
+	if strings.TrimSpace(*fieldsJSON) != "" {
+		fields, err = parseFieldsJSON(*fieldsJSON)
+		if err != nil {
+			return fail(d, err)
+		}
+	}
+	if strings.TrimSpace(*parent) != "" {
+		if _, exists := fields["parent"]; exists {
+			return fail(d, domain.Usage("parent specified in both --fields and --parent"))
+		}
+		project, _ := domain.ProjectFromIssue(key)
+		parentKey, err := resolveParent(*parent, project, site)
+		if err != nil {
+			return fail(d, err)
+		}
+		fields["parent"] = map[string]any{"key": parentKey}
+	}
+	if strings.TrimSpace(*assignee) != "" {
+		if _, exists := fields["assignee"]; exists {
+			return fail(d, domain.Usage("assignee specified in both --fields and --assignee"))
+		}
+		fields["assignee"] = map[string]any{"accountId": strings.TrimSpace(*assignee)}
 	}
 	if d.Jira == nil {
 		return fail(d, domain.Service("jira adapter not configured"))
@@ -201,6 +272,8 @@ func jiraEdit(args []string, d Deps, format string) int {
 			Namespace: "jira",
 			Verb:      "edit",
 			Key:       strings.ToUpper(strings.TrimSpace(key)),
+			Parent:    strings.ToUpper(strings.TrimSpace(*parent)),
+			Assignee:  strings.TrimSpace(*assignee),
 		})
 	}
 	return success(d, format, iss)
@@ -380,6 +453,8 @@ type jiraDryRun struct {
 	Namespace string `json:"namespace"`
 	Verb      string `json:"verb"`
 	Project   string `json:"project,omitempty"`
+	Parent    string `json:"parent,omitempty"`
+	Assignee  string `json:"assignee,omitempty"`
 	Summary   string `json:"summary,omitempty"`
 	Key       string `json:"key,omitempty"`
 	Name      string `json:"name,omitempty"`
@@ -387,6 +462,24 @@ type jiraDryRun struct {
 	Inward    string `json:"inward,omitempty"`
 	Outward   string `json:"outward,omitempty"`
 	Type      string `json:"type,omitempty"`
+}
+
+func resolveParent(raw, project string, site domain.Site) (string, error) {
+	key := strings.ToUpper(strings.TrimSpace(raw))
+	if key == "" {
+		return "", nil
+	}
+	parentProject, ok := domain.ProjectFromIssue(key)
+	if !ok {
+		return "", domain.Usage("parent must be a Jira issue key such as STORY-1")
+	}
+	if project != "" && !strings.EqualFold(project, parentProject) {
+		return "", domain.Usage("sub-task and parent must be in the same project")
+	}
+	if _, err := domain.Resolve(domain.ResolveInput{Site: site.Hostname, Issue: key}); err != nil {
+		return "", domain.Usage("sub-task and parent must be on the same site")
+	}
+	return key, nil
 }
 
 func parseFieldsJSON(s string) (map[string]any, error) {

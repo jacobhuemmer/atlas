@@ -111,6 +111,53 @@ func TestJiraGetLive(t *testing.T) {
 	}
 }
 
+func TestJiraSearchUsersUsesAssignableScopeAndReturnsAccountIDs(t *testing.T) {
+	for _, tc := range []struct{ project, issue, path, parameter, value string }{
+		{"SDO", "", "/rest/api/3/user/assignable/search", "project", "SDO"},
+		{"", "SDO-588", "/rest/api/3/user/assignable/search", "issueKey", "SDO-588"},
+		{"", "", "/rest/api/3/user/search", "", ""},
+	} {
+		t.Run(tc.path+tc.parameter, func(t *testing.T) {
+			c := noSocketClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet || r.URL.Path != tc.path || r.URL.Query().Get("query") != "Alex Example" {
+					t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+				}
+				if tc.parameter != "" && r.URL.Query().Get(tc.parameter) != tc.value {
+					t.Fatalf("scope %s", r.URL.RawQuery)
+				}
+				_, _ = w.Write([]byte(`[{"accountId":"acct-alex","displayName":"Alex Example","active":true},{"accountId":"acct-hidden","displayName":"Hidden Email","active":true}]`))
+			}))
+			result, err := (Jira{Client: c}).SearchUsers(context.Background(), "dev.example.atlassian.net", "Alex Example", tc.project, tc.issue)
+			if err != nil || result.Count != 2 || result.Users[0].AccountID != "acct-alex" || result.Users[1].Email != "" {
+				t.Fatalf("%+v %v", result, err)
+			}
+		})
+	}
+}
+
+func TestJiraEditAssigneeSendsAccountID(t *testing.T) {
+	c := noSocketClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			if id := str(asMap(asMap(payload["fields"])["assignee"]), "accountId"); id != "acct-alex" {
+				t.Fatalf("account ID %q", id)
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"key": "ABC-1", "fields": map[string]any{
+			"project": map[string]any{"key": "ABC"}, "assignee": map[string]any{"accountId": "acct-alex"},
+		}})
+	}))
+	_, err := (Jira{Client: c}).Edit(context.Background(), "dev.example.atlassian.net", "ABC-1", map[string]any{"assignee": map[string]any{"accountId": "acct-alex"}}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestJiraGetUnauthorized(t *testing.T) {
 	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -227,6 +274,71 @@ func TestJiraCreateDryRunDoesNotPOST(t *testing.T) {
 	}, true)
 	if err != nil || hit || iss.Summary != "n" {
 		t.Fatalf("%v %v %+v", err, hit, iss)
+	}
+}
+
+func TestJiraSubtaskCreateAndEditSendParent(t *testing.T) {
+	var writes []string
+	c := noSocketClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost, http.MethodPut:
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			parent := str(asMap(asMap(payload["fields"])["parent"]), "key")
+			writes = append(writes, r.Method+" "+parent)
+			if r.Method == http.MethodPost {
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"key":"ABC-2"}`))
+			} else {
+				w.WriteHeader(http.StatusNoContent)
+			}
+		case http.MethodGet:
+			if !strings.Contains(r.URL.Query().Get("fields"), "parent") {
+				t.Fatal("parent not requested")
+			}
+			parent := "ABC-1"
+			if len(writes) == 2 {
+				parent = "ABC-3"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"key": "ABC-2", "fields": map[string]any{
+				"summary": "Investigate", "issuetype": map[string]any{"name": "Sub-task"},
+				"project": map[string]any{"key": "ABC"}, "parent": map[string]any{"key": parent},
+			}})
+		default:
+			t.Fatal(r.Method)
+		}
+	}))
+	j := Jira{Client: c}
+	created, err := j.Create(context.Background(), "dev.example.atlassian.net", domain.CreateIssue{
+		Project: "ABC", IssueType: "Sub-task", Summary: "Investigate", Parent: "ABC-1",
+	}, false)
+	if err != nil || created.Parent != "ABC-1" {
+		t.Fatalf("%+v %v", created, err)
+	}
+	edited, err := j.Edit(context.Background(), "dev.example.atlassian.net", "ABC-2", map[string]any{"parent": map[string]any{"key": "ABC-3"}}, false)
+	if err != nil || edited.Parent != "ABC-3" {
+		t.Fatalf("%+v %v", edited, err)
+	}
+	if len(writes) != 2 || writes[0] != "POST ABC-1" || writes[1] != "PUT ABC-3" {
+		t.Fatalf("writes %v", writes)
+	}
+}
+
+func TestJiraSubtaskReparentDetectsUnchangedParent(t *testing.T) {
+	c := noSocketClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"key": "ABC-2", "fields": map[string]any{
+			"project": map[string]any{"key": "ABC"}, "parent": map[string]any{"key": "ABC-1"},
+		}})
+	}))
+	_, err := (Jira{Client: c}).Edit(context.Background(), "dev.example.atlassian.net", "ABC-2", map[string]any{"parent": map[string]any{"key": "ABC-3"}}, false)
+	if domain.ClassOf(err) != domain.ClassService {
+		t.Fatalf("expected service error for unchanged parent, got %v", err)
 	}
 }
 

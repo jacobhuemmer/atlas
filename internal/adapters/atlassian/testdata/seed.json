@@ -1,4 +1,9 @@
 {
+  "users": [
+    {"alias":"sesamidevel","account_id":"acct-alex","display_name":"Alex Example","email":"alex@example.test","active":true},
+    {"alias":"sesamidevel","account_id":"acct-avery","display_name":"Avery Example","email":"avery@example.test","active":true},
+    {"alias":"sesami-io","account_id":"acct-alex-other","display_name":"Alex Other","email":"alex.other@example.test","active":true}
+  ],
   "issues": [
     {
       "key": "SDO-1",

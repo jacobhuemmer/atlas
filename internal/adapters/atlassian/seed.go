@@ -14,11 +14,20 @@ const seedPageID = "100"
 
 type seedFile struct {
 	Issues []seedIssue `json:"issues"`
+	Users  []seedUser  `json:"users"`
 	Pages  []seedPage  `json:"pages"`
 	PRs    []seedPR    `json:"pull_requests"`
 	Desks  []seedDesk  `json:"desks"`
 	Types  []seedType  `json:"types"`
 	Reqs   []seedReq   `json:"requests"`
+}
+
+type seedUser struct {
+	Alias       string `json:"alias"`
+	AccountID   string `json:"account_id"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	Active      bool   `json:"active"`
 }
 
 type seedIssue struct {
@@ -123,6 +132,12 @@ func Seed() *Memory {
 		if n := issueNumber(iss.Key); n+1 > m.next[iss.Project] {
 			m.next[iss.Project] = n + 1
 		}
+	}
+	for _, user := range f.Users {
+		m.users = append(m.users, domain.JiraUser{
+			Site: hostForAlias(user.Alias), AccountID: user.AccountID,
+			DisplayName: user.DisplayName, Email: user.Email, Active: user.Active,
+		})
 	}
 	for _, p := range f.Pages {
 		host := hostForAlias(p.Alias)

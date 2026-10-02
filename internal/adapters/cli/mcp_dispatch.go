@@ -102,7 +102,7 @@ func isWrite(ns, verb string) bool {
 func isRead(ns, verb string) bool {
 	switch ns + " " + verb {
 	case "auth status", "site list", "site resolve",
-		"jira get", "jira search",
+		"jira get", "jira search", "jira users",
 		"confluence get", "confluence search",
 		"pr get", "pr list", "pr diff",
 		"jsm desks", "jsm types", "jsm list", "jsm get":

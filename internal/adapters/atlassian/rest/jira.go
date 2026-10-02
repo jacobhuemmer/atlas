@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -10,10 +11,10 @@ import (
 	"github.com/masonhuemmer/atlas/internal/domain"
 )
 
-const jiraFields = "summary,description,status,issuetype,priority,labels,assignee,reporter,created,updated,project,comment,issuelinks"
+const jiraFields = "summary,description,status,issuetype,parent,priority,labels,assignee,reporter,created,updated,project,comment,issuelinks"
 
 var jiraFieldList = []string{
-	"summary", "description", "status", "issuetype", "priority", "labels",
+	"summary", "description", "status", "issuetype", "parent", "priority", "labels",
 	"assignee", "reporter", "created", "updated", "project", "comment", "issuelinks",
 }
 
@@ -76,6 +77,52 @@ func (j Jira) Search(ctx context.Context, hostname, jql string) (domain.SearchRe
 	}
 	items = j.hydrateSearch(ctx, hostname, items)
 	return domain.SearchResult{JQL: jql, Site: hostname, Count: len(items), Items: items}, nil
+}
+
+func (j Jira) SearchUsers(ctx context.Context, hostname, query, project, issue string) (domain.UserSearchResult, error) {
+	cred, err := j.credForHost(hostname)
+	if err != nil {
+		return domain.UserSearchResult{}, err
+	}
+	query = strings.TrimSpace(query)
+	project = strings.ToUpper(strings.TrimSpace(project))
+	issue = strings.ToUpper(strings.TrimSpace(issue))
+	params := url.Values{"query": {query}, "maxResults": {"50"}}
+	path := "/rest/api/3/user/search"
+	if project != "" || issue != "" {
+		path = "/rest/api/3/user/assignable/search"
+		if project != "" {
+			params.Set("project", project)
+		} else {
+			params.Set("issueKey", issue)
+		}
+	}
+	u := joinURL(j.origin(hostname), path) + "?" + params.Encode()
+	code, body, err := j.doJSON(ctx, http.MethodGet, u, cred, nil, nil)
+	if err != nil {
+		return domain.UserSearchResult{}, err
+	}
+	if code != http.StatusOK {
+		return domain.UserSearchResult{}, MapStatus(code)
+	}
+	var raw []map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return domain.UserSearchResult{}, domain.Service("jira user search returned invalid JSON")
+	}
+	result := domain.UserSearchResult{Site: hostname, Query: query, Project: project, Issue: issue, Users: []domain.JiraUser{}}
+	for _, item := range raw {
+		accountID := str(item, "accountId")
+		if accountID == "" {
+			continue
+		}
+		active, _ := item["active"].(bool)
+		result.Users = append(result.Users, domain.JiraUser{
+			Site: hostname, AccountID: accountID, DisplayName: str(item, "displayName"),
+			Email: str(item, "emailAddress"), Active: active,
+		})
+	}
+	result.Count = len(result.Users)
+	return result, nil
 }
 
 func jiraSearchAPIError(code int, m map[string]any) error {
@@ -202,7 +249,7 @@ func (j Jira) bulkGet(ctx context.Context, hostname string, ids []string) ([]dom
 func (j Jira) Create(ctx context.Context, hostname string, in domain.CreateIssue, dryRun bool) (domain.Issue, error) {
 	preview := domain.Issue{
 		Site: hostname, Project: in.Project, IssueType: in.IssueType,
-		Summary: in.Summary, Description: in.Description, Labels: in.Labels,
+		Parent: in.Parent, Summary: in.Summary, Description: in.Description, Labels: in.Labels,
 		Assignee: in.Assignee, Status: "To Do",
 	}
 	if dryRun {
@@ -217,8 +264,11 @@ func (j Jira) Create(ctx context.Context, hostname string, in domain.CreateIssue
 		"issuetype": map[string]any{"name": in.IssueType},
 		"summary":   in.Summary,
 	}
+	if in.Parent != "" {
+		fields["parent"] = map[string]any{"key": in.Parent}
+	}
 	if in.Description != "" {
-		fields["description"] = adfFromText(in.Description)
+		fields["description"] = adfFromMarkdown(in.Description)
 	}
 	if len(in.Labels) > 0 {
 		fields["labels"] = in.Labels
@@ -238,7 +288,14 @@ func (j Jira) Create(ctx context.Context, hostname string, in domain.CreateIssue
 	if key == "" {
 		return domain.Issue{}, domain.Service("jira create returned no key")
 	}
-	return j.Get(ctx, hostname, key)
+	created, err := j.Get(ctx, hostname, key)
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	if in.Parent != "" && !strings.EqualFold(created.Parent, in.Parent) {
+		return domain.Issue{}, domain.Service("jira created issue without the requested parent")
+	}
+	return created, nil
 }
 
 func (j Jira) Edit(ctx context.Context, hostname, key string, fields map[string]any, dryRun bool) (domain.Issue, error) {
@@ -248,6 +305,14 @@ func (j Jira) Edit(ctx context.Context, hostname, key string, fields map[string]
 			return domain.Issue{}, err
 		}
 		return iss, nil
+	}
+	if description, ok := fields["description"].(string); ok {
+		converted := make(map[string]any, len(fields))
+		for name, value := range fields {
+			converted[name] = value
+		}
+		converted["description"] = adfFromMarkdown(description)
+		fields = converted
 	}
 	cred, err := j.credForHost(hostname)
 	if err != nil {
@@ -261,7 +326,14 @@ func (j Jira) Edit(ctx context.Context, hostname, key string, fields map[string]
 	if code != http.StatusNoContent && code != http.StatusOK {
 		return domain.Issue{}, MapStatus(code)
 	}
-	return j.Get(ctx, hostname, key)
+	edited, err := j.Get(ctx, hostname, key)
+	if err != nil {
+		return domain.Issue{}, err
+	}
+	if parent := str(asMap(fields["parent"]), "key"); parent != "" && !strings.EqualFold(edited.Parent, parent) {
+		return domain.Issue{}, domain.Service("jira did not update the sub-task parent")
+	}
+	return edited, nil
 }
 
 func (j Jira) Comment(ctx context.Context, hostname, key, body string, dryRun bool) error {
@@ -273,7 +345,7 @@ func (j Jira) Comment(ctx context.Context, hostname, key, body string, dryRun bo
 		return err
 	}
 	u := joinURL(j.origin(hostname), "/rest/api/3/issue/"+q(strings.ToUpper(strings.TrimSpace(key)))+"/comment")
-	code, _, err := j.doJSON(ctx, http.MethodPost, u, cred, nil, map[string]any{"body": adfFromText(body)})
+	code, _, err := j.doJSON(ctx, http.MethodPost, u, cred, nil, map[string]any{"body": adfFromMarkdown(body)})
 	if err != nil {
 		return err
 	}
@@ -389,9 +461,10 @@ func issueFromREST(hostname string, m map[string]any) domain.Issue {
 		Site:        hostname,
 		BrowseURL:   domain.BrowseURL(hostname, key),
 		Summary:     str(f, "summary"),
-		Description: textFromADF(f["description"]),
+		Description: markdownFromADF(f["description"]),
 		Status:      nestedName(f, "status"),
 		IssueType:   nestedName(f, "issuetype"),
+		Parent:      str(asMap(f["parent"]), "key"),
 		Priority:    nestedName(f, "priority"),
 		Assignee:    displayUser(asMap(f["assignee"])),
 		Reporter:    displayUser(asMap(f["reporter"])),

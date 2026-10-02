@@ -184,25 +184,6 @@ func joinURL(base, path string) string {
 
 func q(raw string) string { return url.QueryEscape(raw) }
 
-func adfFromText(s string) map[string]any {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-	return map[string]any{
-		"type":    "doc",
-		"version": 1,
-		"content": []any{
-			map[string]any{
-				"type": "paragraph",
-				"content": []any{
-					map[string]any{"type": "text", "text": s},
-				},
-			},
-		},
-	}
-}
-
 func textFromADF(v any) string {
 	switch t := v.(type) {
 	case string:

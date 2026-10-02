@@ -7,7 +7,7 @@ Usage: atlas <namespace> <verb> [flags]
 Namespaces:
   auth         sign in, status, logout (core, not a workload)
   site         list and resolve clouds from config
-  jira         get, search, create, edit, comment, transition, link on one site
+  jira         get, search, users, create, edit, comment, transition, link on one site
   confluence   get, search, create, update (no delete)
   pr           get, list, create, comment, merge, diff (no delete)
   jsm          customer REST: desks, types, list, get, create, comment, transition
@@ -46,24 +46,35 @@ Output: JSON (default) or --human.
 
 const jiraHelp = `atlas jira — licensed Jira on one cloud
 
-Verbs: get, search, create, edit, comment, transition, link
+Verbs: get, search, users, create, edit, comment, transition, link
 get:        atlas jira get KEY-1
 search:     atlas jira search --jql 'project = KEY' [--site ALIAS]
+users:      atlas jira users --query 'Alex' --project KEY
+            atlas jira users --query 'alex@example.com' --issue KEY-1
+            atlas jira users --query 'Alex' --site ALIAS
 create:     atlas jira create --project KEY --type Task --summary '...'
-edit:       atlas jira edit KEY-1 --fields '{...}'
+create sub-task: atlas jira create --project KEY --type Sub-task --summary '...' --parent KEY-1
+edit:       atlas jira edit SUBTASK-2 --parent KEY-1  (or --fields '{...}')
+assign:     atlas jira edit KEY-1 --assignee ACCOUNT_ID
 comment:    atlas jira comment KEY-1 --body '...' [--internal]
 transition: atlas jira transition KEY-1 --name Done
 link:       atlas jira link KEY-1 OTHER-2 [--type Relates]
 
 Project keys map to a site in config. Combined JQL that names two sites is usage.
+users with --project or --issue returns accounts Jira considers assignable there.
+Use the returned account_id with create or edit --assignee.
+Email appears only when Jira permits it under the user's privacy settings.
+Jira descriptions and public comments convert Markdown to rich text on write.
 --site is required only when inference cannot run.
 A jsm_customer site is not Jira search: use atlas jsm, not atlas jira search.
 --internal requires an accessible JSM customer request and never falls back to a public comment.
 link default type is Relates. Both keys must be the same cloud.
+--parent creates or reparents a sub-task under a story in the same project.
+link creates a regular issue link; it does not set the sub-task parent.
 When type is Blocks, inward is the blocker and outward is the blocked issue.
 MCP writes dry-run unless write_opt_in is true.
 
-Default search fields: summary, description, status, issuetype, priority,
+Default search fields: summary, description, status, issuetype, parent, priority,
 labels, assignee, reporter, created, updated, project.
 Browse URL: https://<hostname>/browse/<KEY>
 Output: JSON (default) or --human.

@@ -17,6 +17,7 @@ import (
 type Memory struct {
 	mu             sync.Mutex
 	issues         map[string]domain.Issue
+	users          []domain.JiraUser
 	transitions    map[string][]string
 	next           map[string]int
 	pages          map[string]domain.Page
@@ -52,6 +53,13 @@ func (j JiraAPI) Search(ctx context.Context, hostname, jql string) (domain.Searc
 		return domain.SearchResult{}, domain.Service("jira memory not configured")
 	}
 	return j.Memory.Search(ctx, hostname, jql)
+}
+
+func (j JiraAPI) SearchUsers(ctx context.Context, hostname, query, project, issue string) (domain.UserSearchResult, error) {
+	if j.Memory == nil {
+		return domain.UserSearchResult{}, domain.Service("jira memory not configured")
+	}
+	return j.Memory.SearchUsers(ctx, hostname, query, project, issue)
 }
 
 func (j JiraAPI) Create(ctx context.Context, hostname string, in domain.CreateIssue, dryRun bool) (domain.Issue, error) {
@@ -140,6 +148,34 @@ func (m *Memory) Search(_ context.Context, hostname, jql string) (domain.SearchR
 	return domain.SearchResult{JQL: jql, Site: hostname, Count: len(items), Items: items}, nil
 }
 
+func (m *Memory) SearchUsers(_ context.Context, hostname, query, project, issue string) (domain.UserSearchResult, error) {
+	if m == nil {
+		return domain.UserSearchResult{}, domain.Service("jira memory not configured")
+	}
+	query = strings.TrimSpace(query)
+	project = strings.ToUpper(strings.TrimSpace(project))
+	issue = strings.ToUpper(strings.TrimSpace(issue))
+	result := domain.UserSearchResult{Site: hostname, Query: query, Project: project, Issue: issue, Users: []domain.JiraUser{}}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if issue != "" {
+		if _, ok := m.issues[memKey(hostname, issue)]; !ok {
+			return domain.UserSearchResult{}, domain.NotFound("issue not found")
+		}
+	}
+	for _, user := range m.users {
+		if user.Site != hostname {
+			continue
+		}
+		if !strings.Contains(strings.ToLower(user.DisplayName), strings.ToLower(query)) && !strings.Contains(strings.ToLower(user.Email), strings.ToLower(query)) {
+			continue
+		}
+		result.Users = append(result.Users, user)
+	}
+	result.Count = len(result.Users)
+	return result, nil
+}
+
 func (m *Memory) Create(_ context.Context, hostname string, in domain.CreateIssue, dryRun bool) (domain.Issue, error) {
 	if m == nil {
 		return domain.Issue{}, domain.Service("jira memory not configured")
@@ -161,6 +197,7 @@ func (m *Memory) Create(_ context.Context, hostname string, in domain.CreateIssu
 		Description: in.Description,
 		Status:      "To Do",
 		IssueType:   issuetype,
+		Parent:      in.Parent,
 		Labels:      append([]string(nil), in.Labels...),
 		Assignee:    assignee,
 		Reporter:    domain.DefaultAssigneeAccountID(),
@@ -389,11 +426,29 @@ func applyFields(iss *domain.Issue, fields map[string]any) error {
 			}
 			iss.Labels = labels
 		case "assignee":
-			s, err := asString(v)
-			if err != nil {
-				return err
+			if account, ok := v.(map[string]any); ok {
+				id, ok := account["accountId"].(string)
+				if !ok || strings.TrimSpace(id) == "" {
+					return domain.Usage("assignee must have an accountId")
+				}
+				iss.Assignee = strings.TrimSpace(id)
+			} else {
+				s, err := asString(v)
+				if err != nil {
+					return err
+				}
+				iss.Assignee = s
 			}
-			iss.Assignee = s
+		case "parent":
+			parent, ok := v.(map[string]any)
+			if !ok {
+				return domain.Usage("parent must be an object with an issue key")
+			}
+			key, ok := parent["key"].(string)
+			if !ok || strings.TrimSpace(key) == "" {
+				return domain.Usage("parent must have an issue key")
+			}
+			iss.Parent = strings.ToUpper(strings.TrimSpace(key))
 		case "status", "issuetype", "project", "key":
 			return domain.Usagef("cannot edit %s via --fields", k)
 		default:
