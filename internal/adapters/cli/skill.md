@@ -66,7 +66,7 @@ keys map to an alias. JQL/CQL that names two sites is usage. A
 | Confluence get/search | `atlas_read` `confluence` `get` / `search` (`cql`) |
 | Confluence create/update | `atlas_write`; no delete |
 | PR get/list/diff | `atlas_read` `pr` `get` / `list` / `diff` (`repo`, `id`) |
-| PR create/comment/merge | `atlas_write`; no delete |
+| PR create/edit/comment/merge | `atlas_write`; edit an open PR's title or description with `namespace=pr` `verb=edit` `flags={repo:"SLUG",id:1,description:"…"}` + `write_opt_in`; no delete |
 | JSM desks/types/list/get | `atlas_read` `jsm` `desks` / `types` / `list` / `get` |
 | JSM create/comment/transition | `atlas_write`; comments are public |
 

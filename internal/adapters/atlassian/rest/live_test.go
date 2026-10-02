@@ -477,6 +477,11 @@ func TestBitbucketOperationsUseSelectedWorkspaceCred(t *testing.T) {
 			_, err := b.Create(context.Background(), "workspace-b", "atlas", domain.CreatePullRequest{Title: "pr", Source: "feature"}, false)
 			return err
 		}},
+		{name: "edit", call: func(b Bitbucket) error {
+			description := "updated"
+			_, err := b.Edit(context.Background(), "workspace-b", "atlas", 1, domain.EditPullRequest{Description: &description}, false)
+			return err
+		}},
 		{name: "comment", call: func(b Bitbucket) error {
 			return b.Comment(context.Background(), "workspace-b", "atlas", 1, "body", false)
 		}},
@@ -527,6 +532,44 @@ func TestBitbucketOperationsUseSelectedWorkspaceCred(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestBitbucketEditUpdatesDescriptionWithoutReplacingTitle(t *testing.T) {
+	putCount := 0
+	c, _ := liveClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2.0/repositories/ws/atlas/pullrequests/1" {
+			t.Fatal(r.URL.Path)
+		}
+		if r.Method == http.MethodPut {
+			putCount++
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			if len(payload) != 2 || payload["title"] != "Old title" || payload["description"] != "## Revised\n\nSummary" {
+				t.Fatalf("payload %#v", payload)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": 1, "state": "OPEN", "title": payload["title"], "description": payload["description"]})
+			return
+		}
+		if r.Method != http.MethodGet {
+			t.Fatal(r.Method)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": 1, "state": "OPEN", "title": "Old title", "description": "Old description"})
+	}))
+	if err := auth.PutWorkspace(c.Store, "ws", auth.Cred{Email: "ws@example.com", Token: "ws-token"}); err != nil {
+		t.Fatal(err)
+	}
+	description := "## Revised\n\nSummary"
+	b := Bitbucket{Client: c}
+	preview, err := b.Edit(context.Background(), "ws", "atlas", 1, domain.EditPullRequest{Description: &description}, true)
+	if err != nil || preview.Title != "Old title" || preview.Description != description || putCount != 0 {
+		t.Fatalf("preview %v %+v put count %d", err, preview, putCount)
+	}
+	edited, err := b.Edit(context.Background(), "ws", "atlas", 1, domain.EditPullRequest{Description: &description}, false)
+	if err != nil || edited.Title != "Old title" || edited.Description != description || putCount != 1 {
+		t.Fatalf("edit %v %+v put count %d", err, edited, putCount)
 	}
 }
 

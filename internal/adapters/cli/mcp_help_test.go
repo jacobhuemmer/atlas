@@ -55,7 +55,7 @@ func TestMCPHelpTopics(t *testing.T) {
 	cases := map[string][]string{
 		"jira-search":      {"jira get KEY-1", "Never dual-query", "atlas jsm"},
 		"confluence-write": {"space = KEY", "write_opt_in"},
-		"pr-review":        {"defaults.workspace", "pr merge", "No PR delete", "auth login --workspace"},
+		"pr-review":        {"defaults.workspace", "pr edit", "pr merge", "No PR delete", "auth login --workspace"},
 		"jsm-customer":     {"jsm_customer", "public: true", "jsm desks"},
 	}
 	for topic, wants := range cases {
@@ -121,7 +121,7 @@ func TestMCPHelpNeverRunsVerb(t *testing.T) {
 		"site":       {"list", "resolve"},
 		"jira":       {"get", "search", "users", "create", "edit", "comment", "transition", "link"},
 		"confluence": {"get", "search", "create", "update"},
-		"pr":         {"get", "list", "create", "comment", "merge", "diff"},
+		"pr":         {"get", "list", "create", "edit", "comment", "merge", "diff"},
 		"jsm":        {"desks", "types", "list", "get", "create", "comment", "transition"},
 	}
 	var pairs [][2]string

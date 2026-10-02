@@ -36,6 +36,7 @@ func TestWriteGateInjectsDryRun(t *testing.T) {
 		{"confluence", "create"},
 		{"confluence", "update"},
 		{"pr", "create"},
+		{"pr", "edit"},
 		{"pr", "comment"},
 		{"pr", "merge"},
 		{"jsm", "create"},

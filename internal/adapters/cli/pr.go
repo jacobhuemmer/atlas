@@ -19,6 +19,8 @@ func runPR(args []string, d Deps, format string) int {
 		return prList(args, d, format)
 	case "create":
 		return prCreate(args, d, format)
+	case "edit":
+		return prEdit(args, d, format)
 	case "comment":
 		return prComment(args, d, format)
 	case "merge":
@@ -26,7 +28,7 @@ func runPR(args []string, d Deps, format string) int {
 	case "diff":
 		return prDiff(args, d, format)
 	default:
-		return fail(d, domain.Usagef("unknown pr verb %q", verb).WithHint("atlas pr get|list|create|comment|merge|diff"))
+		return fail(d, domain.Usagef("unknown pr verb %q", verb).WithHint("atlas pr get|list|create|edit|comment|merge|diff"))
 	}
 }
 
@@ -138,6 +140,55 @@ func prCreate(args []string, d Deps, format string) int {
 	return success(d, format, pr)
 }
 
+func prEdit(args []string, d Deps, format string) int {
+	if hasHelp(args) {
+		return writeHelp(d.Stdout, prHelp)
+	}
+	fsset := flag.NewFlagSet("pr edit", flag.ContinueOnError)
+	fsset.SetOutput(d.Stderr)
+	workspace, repo, id := prCommonFlags(fsset)
+	title := fsset.String("title", "", "PR title")
+	description := fsset.String("description", "", "markdown description (empty clears it)")
+	dry := fsset.Bool("dry-run", false, "")
+	if err := parseMixed(fsset, args); err != nil {
+		return fail(d, domain.Usage(err.Error()))
+	}
+	ws, r, n, err := requirePR(*workspace, *repo, *id)
+	if err != nil {
+		return fail(d, err)
+	}
+	var in domain.EditPullRequest
+	fsset.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "title":
+			trimmed := strings.TrimSpace(*title)
+			in.Title = &trimmed
+		case "description":
+			in.Description = description
+		}
+	})
+	if in.Title == nil && in.Description == nil {
+		return fail(d, domain.Usage("edit requires --title or --description").WithHint("atlas pr edit --repo atlas --id 1 --description '…'"))
+	}
+	if in.Title != nil && *in.Title == "" {
+		return fail(d, domain.Usage("title cannot be empty"))
+	}
+	if d.PR == nil {
+		return fail(d, domain.Service("pr adapter not configured"))
+	}
+	pr, err := d.PR.Edit(ctx(), ws, r, n, in, *dry)
+	if err != nil {
+		return fail(d, err)
+	}
+	if *dry {
+		return success(d, format, prDryRun{
+			DryRun: true, Namespace: "pr", Verb: "edit", Repo: r, Workspace: ws,
+			ID: n, Title: pr.Title, Description: &pr.Description,
+		})
+	}
+	return success(d, format, pr)
+}
+
 func prComment(args []string, d Deps, format string) int {
 	if hasHelp(args) {
 		return writeHelp(d.Stdout, prHelp)
@@ -237,15 +288,16 @@ func prDiff(args []string, d Deps, format string) int {
 }
 
 type prDryRun struct {
-	DryRun    bool   `json:"dry_run"`
-	Namespace string `json:"namespace"`
-	Verb      string `json:"verb"`
-	Repo      string `json:"repo,omitempty"`
-	Workspace string `json:"workspace,omitempty"`
-	Title     string `json:"title,omitempty"`
-	Source    string `json:"source,omitempty"`
-	ID        int    `json:"id,omitempty"`
-	Body      string `json:"body,omitempty"`
+	DryRun      bool    `json:"dry_run"`
+	Namespace   string  `json:"namespace"`
+	Verb        string  `json:"verb"`
+	Repo        string  `json:"repo,omitempty"`
+	Workspace   string  `json:"workspace,omitempty"`
+	Title       string  `json:"title,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Source      string  `json:"source,omitempty"`
+	ID          int     `json:"id,omitempty"`
+	Body        string  `json:"body,omitempty"`
 }
 
 func prCommonFlags(fsset *flag.FlagSet) (workspace, repo *string, id *int) {

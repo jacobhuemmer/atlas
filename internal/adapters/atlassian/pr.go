@@ -34,6 +34,13 @@ func (p PRAPI) Create(ctx context.Context, workspace, repo string, in domain.Cre
 	return p.Memory.CreatePR(ctx, workspace, repo, in, dryRun)
 }
 
+func (p PRAPI) Edit(ctx context.Context, workspace, repo string, id int, in domain.EditPullRequest, dryRun bool) (domain.PullRequest, error) {
+	if p.Memory == nil {
+		return domain.PullRequest{}, domain.Service("pr memory not configured")
+	}
+	return p.Memory.EditPR(ctx, workspace, repo, id, in, dryRun)
+}
+
 func (p PRAPI) Comment(ctx context.Context, workspace, repo string, id int, body string, dryRun bool) error {
 	if p.Memory == nil {
 		return domain.Service("pr memory not configured")
@@ -138,6 +145,36 @@ func (m *Memory) CreatePR(_ context.Context, workspace, repo string, in domain.C
 	m.nextPR[rk] = n + 1
 	m.putPRLocked(preview)
 	return clonePR(preview), nil
+}
+
+func (m *Memory) EditPR(_ context.Context, workspace, repo string, id int, in domain.EditPullRequest, dryRun bool) (domain.PullRequest, error) {
+	workspace, repo, err := normalizePR(workspace, repo)
+	if err != nil {
+		return domain.PullRequest{}, err
+	}
+	if id <= 0 {
+		return domain.PullRequest{}, domain.Usage("pr id is required")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	pr, ok := m.prs[prKey(workspace, repo, id)]
+	if !ok {
+		return domain.PullRequest{}, domain.NotFound("pull request not found").WithHint("check --repo and --id")
+	}
+	if pr.State != "OPEN" {
+		return domain.PullRequest{}, domain.Usage("only open pull requests can be edited")
+	}
+	next := clonePR(pr)
+	if in.Title != nil {
+		next.Title = *in.Title
+	}
+	if in.Description != nil {
+		next.Description = *in.Description
+	}
+	if !dryRun {
+		m.putPRLocked(next)
+	}
+	return next, nil
 }
 
 func (m *Memory) CommentPR(_ context.Context, workspace, repo string, id int, body string, dryRun bool) error {
