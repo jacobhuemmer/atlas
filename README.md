@@ -13,11 +13,11 @@ make install
 Homebrew:
 
 ```sh
-brew tap jacobhuemmer/atlas https://github.com/jacobhuemmer/atlas
-brew install jacobhuemmer/atlas/atlas
+brew tap masonhuemmer/atlas https://github.com/masonhuemmer/atlas
+brew install masonhuemmer/atlas/atlas
 ```
 
-Upgrade with `brew upgrade jacobhuemmer/atlas/atlas`. For unreleased `main`, `brew install --HEAD jacobhuemmer/atlas/atlas` and later `brew upgrade --fetch-HEAD jacobhuemmer/atlas/atlas`.
+Upgrade with `brew upgrade masonhuemmer/atlas/atlas`. For unreleased `main`, `brew install --HEAD masonhuemmer/atlas/atlas` and later `brew upgrade --fetch-HEAD masonhuemmer/atlas/atlas`.
 
 Chocolatey (64-bit Windows, once the package is approved in the community repository):
 
